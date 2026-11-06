@@ -1,5 +1,16 @@
 # Changes
 
+## 4.2.0 — 2026-11-07
+
+- Upload molecular world geometry once; rotate, pan and zoom using GPU uniforms. Cache attribute locations, selection buffers and projected picking points. Reduce interactive rendering detail/pixels, restore after release, add quality/frame controls and recover WebGL contexts. Keep UI text at browser resolution.
+- Reuse exact placement scoring graphs, radii, thresholds and static environments for all 252 candidate poses; cache fragment generation within a batch. Preserve cancellation, donor indices and existing chemistry criteria. Reuse atom lookups for geometry tables.
+- Replace whole-bank history copies with immutable copy-on-write snapshots. Send versioned changed sections and bank summaries; keep full graphs in explicit project exports. Serialize rapid edits and preserve unchanged DOM/model references.
+- Coalesce automatic saves in a background writer; expose pending/saved/error state, flush on normal shutdown and reject new edits after closing. Read-only calculation/export work and socket writes release the workspace lock.
+- Add HTTP keep-alive, gzip responses and conditional static asset caches. Page long inspection/library tables, debounce search and avoid updates to closed dialogs.
+- Detect SSH and avoid launching a remote/X11 browser automatically; print local port-forwarding instructions. Preserve explicit --no-browser and add --open-browser for an intentional override.
+- Add scientific equivalence, history/save/transport, native GLES pixel, DOM reuse/rapid-edit/pagination and GPU-buffer cache regressions. Include reproducible before/after benchmarks and their browser/GPU limitations.
+- Publish the performance work previously staged as 4.1.1 on the separate `ver-4.2` branch. Include the complete Korean project history in `04.ligand.md` and align reported timing values with the saved raw benchmark samples.
+
 ## 4.1.0 — 2026-11-06
 
 - Make the local browser UI the default. Prompt for a port when run interactively; support `--port`, automatic free port `0`, browser auto-open, `--no-browser`, `--fresh`, and isolated `--config-dir` workspaces. Keep `--native` for the Tk editor.

@@ -1,4 +1,45 @@
-# Validation — version 4.1.0, 2026-11-06
+# Validation — version 4.2.0, 2026-11-07
+
+- Full Python suite: **119 passing tests** on Python 3.13.5 / Tk 8.6 / RDKit 2026.09.1 / ASE 3.29.0, including the optional legacy GUI on a local X11 display. This adds 17 performance/correctness regressions and 2 native GLES pixel checks to the 100 existing checks. The browser server still starts without DISPLAY or Tk initialization.
+- **22 DOM integration scenarios** pass against the real Python HTTP API with jsdom 26. New checks preserve the model and unchanged coordinate/selection nodes after settings updates, serialize rapid edits without stale revisions, report completed background saves, and page geometry results while keeping row selection. Canvas is mocked in this suite.
+- A separate Node regression rotates a 2,752-atom model **100 times without any geometry rebuild, buffer upload or GL attribute lookup** after the first frame. It also checks selection-only buffer updates, model/palette/visibility invalidation, unchanged font/theme geometry, and CPU picking projection. GL calls are mocked; this does not measure GPU throughput.
+- Native surfaceless Mesa EGL/GLES tests compile/link the shipped point and bond shaders and check actual rendered pixels for a sphere, selection ring and bond. These tests are optional where native EGL is absent. They establish native shader execution on this environment, not WebGL/browser integration or hardware GPU performance.
+- Exact pose-score regressions compare dense and sparse implementations with the original algorithm under both contact criteria, including exclusions and rigid internal distances. A complete 252-pose search returns the same final coordinates (tolerance 1e-7 Å). Repeated ligand construction uses one cached fragment; invalid float/bool/string atom indices remain rejected. Geometry tables reuse one atom lookup and retain original measurements.
+- History checks cover immutable snapshots across bank store/rename/delete/restore, reset, undo/redo, settings, favorites, contact changes and atom edits. A blocked disk writer does not hold the edit lock. Rapid saves coalesce, shutdown flushes the latest revision, closing rejects new edits, and actual disk errors remain visible without discarding current work. Existing synchronous persistence rollback tests remain available for the direct workspace API.
+- Transport checks cover versioned partial responses, graph-free bank summaries, gzip, HTTP/1.1 connection reuse, conditional static caching, token/origin enforcement, stale revisions and SSH browser-opening overrides. Expensive read-only geometry/export operations and socket writes release the workspace lock.
+- JavaScript syntax checks and `python TinOxoStudio.py --check` pass. Runtime dependencies are unchanged; Node/jsdom are development-only.
+- **Real-browser appearance, browser WebGL integration and end-to-end FPS remain unverified**. On the 4.2 release pass, the cloud browser could be opened but could not connect to the isolated localhost test server (`ERR_CONNECTION_REFUSED`). The API itself was reachable from the test process. No user PC/HPC/SSH session, Windows opener or Gaussian executable was available. Do not interpret mock CPU timings or native Mesa pixels as a browser frame-rate guarantee.
+
+## Reproducible performance measurements
+
+Before is commit `2b73badafbf938be0dcc5f8d236531c084ba3405` (4.1.0); after is 4.2.0 (the same optimized code was measured while staged as 4.1.1). Python timings use five samples after warmup on Python 3.12.14. Raw wall/CPU samples are in [web_20261106.json](benchmarks/web_20261106.json); shared-host timing varies. Edit response timing includes JSON encoding and the old synchronous save; the new save completes separately in the background. It measures time to return an edit, not total persistence work or browser/network latency.
+
+| Case | 4.1.0 median | 4.2.0 median |
+|---|---:|---:|
+| Attach hexyl to a bare Sn12 atom, 252 poses | 474.127 ms | 76.036 ms |
+| Attach phenyl to a bare Sn12 atom, 252 poses | 309.015 ms | 27.692 ms |
+| Contact cleanup, 86-atom methyl example | 577.413 ms | 32.099 ms |
+| Geometry table, 688 atoms / 3,120 rows | 192.612 ms | 61.148 ms |
+| Atom-color edit, 86 atoms / bank 0 | 3.077 ms | 0.678 ms |
+| Atom-color edit, 86 atoms / bank 20 | 71.233 ms | 0.726 ms |
+| Atom-color edit, 86 atoms / bank 100 | 371.970 ms | 0.414 ms |
+| Atom-color edit, 688 atoms / bank 20 | 535.137 ms | 2.873 ms |
+
+For the 86-atom / 100-entry bank case, uncompressed edit JSON drops from **2,527,221 to 25,267 bytes** (about 99% smaller). With the new gzip support the response is about 4.5 KB. Full project downloads continue to include all bank graphs. The benchmark's final attachment coordinates differ by **0 Å**.
+
+JavaScript CPU submission measurements use 10 warmup / 60 measured rotations. **GL and Canvas calls are mocked**; the timings exclude real GPU work, browser rendering, compositing and network. With labels off and interactive drawing, the 2,752-atom model changes from 42.394 to 0.014 ms median in this CPU-only fixture; the stable result is **120 geometry uploads → 0** across the 60 measured frames. New frames still submit two draw calls and the GPU still processes the atoms/bonds. Raw data: [viewer_web_20261106.json](benchmarks/viewer_web_20261106.json).
+
+Re-run in an isolated development checkout:
+
+```bash
+python benchmarks/benchmark_web.py /path/to/4.1.0 --output /tmp/web.json --viewer-input /tmp/viewer-input.json
+node benchmarks/benchmark_viewer.mjs /path/to/4.1.0 /tmp/viewer-input.json
+node tests/test_viewer.mjs
+```
+
+For full tests use `python -m unittest discover -s tests -v`. Optional GUI tests require Tk 8.6 and a working local DISPLAY. DOM tests require an isolated local test server and jsdom 26; see tests/test_frontend.mjs. Never run mutating tests against a user's workspace.
+
+# Earlier 4.1.0 validation record
 
 - Full Python suite: **100 passing tests** on Python 3.13.5 / Tk 8.6 / RDKit 2026.09.1 / ASE 3.29.0 with a local X11 display for the optional legacy GUI. This comprises 72 existing regressions and 28 new HTTP/workspace/launcher tests. The browser server itself starts with DISPLAY unset and does not initialize Tk.
 - New tests cover port prompting/default/explicit/automatic selection, occupied-port errors, browser opening with the actual bound port and token, and a real command-line subprocess serving the API without DISPLAY.

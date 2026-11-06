@@ -1,0 +1,79 @@
+{
+  "note": "JavaScript CPU work with GL/canvas calls mocked; not browser/GPU frame timings or FPS.",
+  "warmup": 10,
+  "samples": 60,
+  "cases": [
+    {
+      "version": "before",
+      "atoms": 86,
+      "bonds": 108,
+      "median_ms": 1.1841,
+      "p95_ms": 3.4874,
+      "buffer_uploads": 120,
+      "uploaded_bytes": 2321760
+    },
+    {
+      "version": "before",
+      "atoms": 688,
+      "bonds": 864,
+      "median_ms": 9.9047,
+      "p95_ms": 17.6631,
+      "buffer_uploads": 120,
+      "uploaded_bytes": 18574080
+    },
+    {
+      "version": "before",
+      "atoms": 2752,
+      "bonds": 3456,
+      "median_ms": 42.3936,
+      "p95_ms": 58.4325,
+      "buffer_uploads": 120,
+      "uploaded_bytes": 74296320
+    },
+    {
+      "version": "before",
+      "atoms": 5504,
+      "bonds": 6912,
+      "median_ms": 98.7357,
+      "p95_ms": 1112.7744,
+      "buffer_uploads": 120,
+      "uploaded_bytes": 148592640
+    },
+    {
+      "version": "after",
+      "atoms": 86,
+      "bonds": 108,
+      "median_ms": 0.0177,
+      "p95_ms": 0.271,
+      "buffer_uploads": 0,
+      "uploaded_bytes": 0
+    },
+    {
+      "version": "after",
+      "atoms": 688,
+      "bonds": 864,
+      "median_ms": 0.0128,
+      "p95_ms": 0.0298,
+      "buffer_uploads": 0,
+      "uploaded_bytes": 0
+    },
+    {
+      "version": "after",
+      "atoms": 2752,
+      "bonds": 3456,
+      "median_ms": 0.0143,
+      "p95_ms": 0.2309,
+      "buffer_uploads": 0,
+      "uploaded_bytes": 0
+    },
+    {
+      "version": "after",
+      "atoms": 5504,
+      "bonds": 6912,
+      "median_ms": 0.0212,
+      "p95_ms": 0.0402,
+      "buffer_uploads": 0,
+      "uploaded_bytes": 0
+    }
+  ]
+}

@@ -26,6 +26,10 @@ let state = null,
   selectedSlot = null;
 const modal = $("modal"),
   picker = $("picker");
+let modalEpoch = 0;
+modal.addEventListener("close", () => {
+  modalEpoch++;
+});
 function toast(message, error = false) {
   $("toast").textContent = message;
   $("toast").classList.toggle("error", error);
@@ -38,9 +42,10 @@ const guard =
   (fn) =>
   (...args) => {
     try {
-      return Promise.resolve(fn(...args)).catch((error) =>
-        toast(error.message, true),
-      );
+      return Promise.resolve(fn(...args)).catch((error) => {
+        console.error(error);
+        toast(error.message, true);
+      });
     } catch (error) {
       toast(error.message, true);
     }
@@ -61,32 +66,43 @@ async function api(path, data) {
   }
   return result;
 }
-async function refresh(fit = false) {
-  state = await api("state");
-  selection = selection.filter((i) =>
-    state.project.atoms.some((a) => a.id === i),
-  );
-  render();
-  if (fit) viewer.fit();
-  if (state.job?.status === "running") pollJob();
+// Merge versioned sections so unchanged models keep their GPU/DOM caches.
+let editQueue = Promise.resolve(),
+  saveTimer = null;
+const rendered = {};
+function mergeState(incoming) {
+  state = { ...state, ...incoming };
+  const ids = new Set(state.project.atoms.map((a) => a.id));
+  selection = selection.filter((i) => ids.has(i));
 }
-async function edit(action, data = {}, fit = false) {
-  const result = await api("edit/" + action, {
-    revision: state.revision,
-    ids: selection,
-    ...data,
-  });
-  state = result.state || result;
-  if (result.result?.selection) selection = result.result.selection;
-  else
-    selection = selection.filter((i) =>
-      state.project.atoms.some((a) => a.id === i),
-    );
+async function refresh(fit = false) {
+  const known = encodeURIComponent(JSON.stringify(state?.versions || {}));
+  mergeState(await api("state?known=" + known));
   render();
   if (fit) viewer.fit();
-  return result.result;
+  if (state.job?.status === "running") guard(() => pollJob())();
+}
+function edit(action, data = {}, fit = false) {
+  const ids = [...selection];
+  const work = editQueue.then(async () => {
+    const result = await api("edit/" + action, {
+      revision: state.revision,
+      known: state.versions,
+      ids,
+      ...data,
+    });
+    mergeState(result.state || result);
+    if (result.result?.selection) selection = result.result.selection;
+    render();
+    if (fit) viewer.fit();
+    return result.result;
+  });
+  // Later clicks use the revision returned by the previous edit.
+  editQueue = work.catch(() => {});
+  return work;
 }
 async function task(action, data = {}) {
+  await editQueue;
   if (state.job?.status === "running")
     throw Error("진행 중인 계산을 완료하거나 취소하세요.");
   const job = await api("task/" + action, {
@@ -101,16 +117,17 @@ async function task(action, data = {}) {
   await pollJob(true);
 }
 async function pollJob(wait = false) {
-  if (jobPolling && !wait) return;
-  while (jobPolling) {
-    await delay(200);
+  if (jobPolling) {
+    if (wait) await jobPolling;
+    return;
   }
-  jobPolling = true;
-  try {
+  jobPolling = (async () => {
     while (true) {
       const data = await api("job");
       state.job = data.job;
+      state.save = data.save;
       renderJob();
+      renderSave();
       if (!data.job || data.job.status !== "running") {
         await refresh(true);
         if (data.job?.status === "error") throw Error(data.job.error);
@@ -120,6 +137,9 @@ async function pollJob(wait = false) {
       }
       await delay(350);
     }
+  })();
+  try {
+    await jobPolling;
   } finally {
     jobPolling = false;
   }
@@ -128,6 +148,27 @@ function renderJob() {
   const running = state.job?.status === "running";
   $("jobStatus").textContent = running ? state.job.progress : "";
   $("cancelJob").classList.toggle("hidden", !running);
+}
+function renderSave() {
+  const save = state.save || { state: "saved" };
+  $("saveStatus").textContent =
+    save.state === "pending"
+      ? "저장 중…"
+      : save.state === "error"
+        ? "자동 저장 실패 · JSON을 다운로드하세요"
+        : "자동 저장됨";
+  $("saveStatus").title = save.error || "";
+  $("saveStatus").classList.toggle("save-error", save.state === "error");
+  clearTimeout(saveTimer);
+  if (save.state === "pending")
+    saveTimer = setTimeout(
+      guard(async () => {
+        const info = await api("job");
+        state.save = info.save;
+        renderSave();
+      }),
+      650,
+    );
 }
 function xyz() {
   return (
@@ -167,42 +208,123 @@ function table(headers, rows, attrs = () => "", empty = "항목이 없습니다.
     ? `<table><thead><tr>${headers.map((v) => `<th>${h(v)}</th>`).join("")}</tr></thead><tbody>${rows.map((row, i) => `<tr ${attrs(row, i)}>${row.map((v) => `<td>${h(v)}</td>`).join("")}</tr>`).join("")}</tbody></table>`
     : `<div class="empty">${h(empty)}</div>`;
 }
-function render() {
-  applyAppearance();
+// Keep long inspection lists responsive without dropping any rows.
+function pagedTable(
+  id,
+  headers,
+  rows,
+  attrs = () => "",
+  bind = () => {},
+  empty = "항목이 없습니다.",
+) {
+  const host = $(id),
+    size = 150;
+  if (!host) return;
+  let page = 0;
+  const fill = () => {
+    const start = page * size,
+      pages = Math.max(1, Math.ceil(rows.length / size));
+    host.innerHTML =
+      table(
+        headers,
+        rows.slice(start, start + size),
+        (r, i) => attrs(r, start + i),
+        empty,
+      ) +
+      (pages > 1
+        ? `<div class="inline table-pager"><button data-page="prev" ${page === 0 ? "disabled" : ""}>이전</button><span>${page + 1} / ${pages} · 총 ${rows.length}개</span><button data-page="next" ${page + 1 === pages ? "disabled" : ""}>다음</button></div>`
+        : "");
+    host.querySelectorAll("[data-page]").forEach(
+      (b) =>
+        (b.onclick = () => {
+          page += b.dataset.page === "next" ? 1 : -1;
+          fill();
+          host.scrollTop = 0;
+        }),
+    );
+    bind(host);
+  };
+  fill();
+}
+function atomMap() {
+  if (rendered.atomSource !== state.project) {
+    rendered.atomSource = state.project;
+    rendered.atoms = new Map(state.project.atoms.map((a) => [a.id, a]));
+  }
+  return rendered.atoms;
+}
+function renderLazyPanels() {
   const p = state.project;
-  $("structureTitle").textContent = p.title;
-  $("viewMetrics").textContent =
-    `${p.atoms.length} atoms · ${p.bonds.length} bonds · 고정 배율`;
-  $("formula").textContent = state.formula;
-  $("atomCount").textContent = p.atoms.length;
-  $("bondCount").textContent = p.bonds.length;
-  $("totalCharge").textContent = p.metadata.totalCharge ?? "미지정";
-  $("coordinates").textContent = xyz();
-  $("log").textContent = state.logs.join("\n");
+  if (
+    !$("coordinates").classList.contains("hidden") &&
+    rendered.coordinates !== p
+  ) {
+    $("coordinates").textContent = xyz();
+    rendered.coordinates = p;
+  }
+  if (!$("slotList").classList.contains("hidden") && rendered.slots !== p) {
+    $("slotsTable").innerHTML = table(
+      ["자리", "종류", "SMILES"],
+      p.slots.map((s) => [s.id, s.kind, s.smiles || "—"]),
+      (r) => `data-slot="${h(r[0])}"`,
+    );
+    rendered.slots = p;
+  }
+}
+function render() {
+  const p = state.project;
+  if (rendered.settings !== state.settings) {
+    applyAppearance();
+    $("ff").value = state.settings.ff || "MMFF94";
+    rendered.settings = state.settings;
+  }
+  if (rendered.project !== p) {
+    $("structureTitle").textContent = p.title;
+    $("viewMetrics").textContent =
+      `${p.atoms.length} atoms · ${p.bonds.length} bonds · 고정 배율`;
+    $("formula").textContent = state.formula;
+    $("atomCount").textContent = p.atoms.length;
+    $("bondCount").textContent = p.bonds.length;
+    $("totalCharge").textContent = p.metadata.totalCharge ?? "미지정";
+    rendered.project = p;
+  }
+  const log = state.logs.join("\n");
+  if (rendered.log !== log) {
+    $("log").textContent = log;
+    rendered.log = log;
+  }
   $("undo").disabled = !state.undo;
   $("redo").disabled = !state.redo;
-  $("ff").value = state.settings.ff || "MMFF94";
-  $("slotsTable").innerHTML = table(
-    ["자리", "종류", "SMILES"],
-    p.slots.map((s) => [s.id, s.kind, s.smiles || "—"]),
-    (r) => `data-slot="${h(r[0])}"`,
-  );
+  renderLazyPanels();
   renderSelection();
   renderJob();
+  renderSave();
   viewer.draw();
 }
 function renderSelection() {
-  const aa = new Map(state.project.atoms.map((a) => [a.id, a]));
+  const key = selection.join(",");
+  if (
+    rendered.selectionProject === state.project &&
+    rendered.selectionKey === key
+  )
+    return;
+  rendered.selectionProject = state.project;
+  rendered.selectionKey = key;
+  const aa = atomMap();
   $("selectedCount").textContent = selection.length;
   $("selectionBadge").textContent = selection.length;
-  $("atomList").innerHTML = table(
-    ["ID", "원소", "고정"],
-    selection
-      .slice(0, 500)
-      .map((i) => [i, aa.get(i).element, aa.get(i).fixed ? "●" : "—"]),
-    (r) => `data-id="${r[0]}"`,
-    "구조에서 원자를 선택하세요.",
-  );
+  $("atomList").innerHTML =
+    table(
+      ["ID", "원소", "고정"],
+      selection
+        .slice(0, 100)
+        .map((i) => [i, aa.get(i).element, aa.get(i).fixed ? "●" : "—"]),
+      (r) => `data-id="${r[0]}"`,
+      "구조에서 원자를 선택하세요.",
+    ) +
+    (selection.length > 100
+      ? `<p class="hint">처음 100개 표시 · 선택한 ${selection.length}개 모두에 작업을 적용합니다.</p>`
+      : "");
   const a = selection.length === 1 ? aa.get(selection[0]) : null;
   for (const input of $("atomForm").querySelectorAll("input"))
     input.value = a ? (a[input.name] ?? 0) : "";
@@ -223,9 +345,11 @@ function selectExact(ids) {
   renderSelection();
 }
 function show(title, html) {
+  modalEpoch++;
   $("modalTitle").textContent = title;
   $("modalBody").innerHTML = html;
   if (!modal.open) modal.showModal();
+  return modalEpoch;
 }
 function btn(text, id, primary = false) {
   return `<button id="${id}" class="${primary ? "primary" : ""}">${h(text)}</button>`;
@@ -324,35 +448,48 @@ function bindLibrary(receiver) {
     const rr = records().filter((r) =>
       [r.name, r.category, r.smiles].join(" ").toLowerCase().includes(q),
     );
-    $("libraryTable").innerHTML = table(
+    pagedTable(
+      "libraryTable",
       ["종류", "이름", "SMILES", "방식"],
       rr.map((r) => [r.category, r.name, r.smiles, r.mode]),
       (_, i) => `data-record="${i}"`,
+      () => {
+        $("libraryTable")
+          .querySelectorAll("[data-record]")
+          .forEach((tr) => {
+            const choose = () => {
+              active = rr[Number(tr.dataset.record)];
+              $("favoriteName").value = active.name;
+              $("favoriteSmiles").value = active.smiles;
+              $("favoriteMode").value = active.mode;
+              $("libraryTable")
+                .querySelectorAll("tr.selected")
+                .forEach((v) => v.classList.remove("selected"));
+              tr.classList.add("selected");
+            };
+            tr.addEventListener("click", choose);
+            tr.addEventListener(
+              "dblclick",
+              guard(async () => {
+                choose();
+                await receiver(active.smiles, active.mode);
+              }),
+            );
+          });
+      },
     );
-    $("libraryTable")
-      .querySelectorAll("[data-record]")
-      .forEach((tr) => {
-        const choose = () => {
-          active = rr[Number(tr.dataset.record)];
-          $("favoriteName").value = active.name;
-          $("favoriteSmiles").value = active.smiles;
-          $("favoriteMode").value = active.mode;
-          $("libraryTable")
-            .querySelectorAll("tr.selected")
-            .forEach((v) => v.classList.remove("selected"));
-          tr.classList.add("selected");
-        };
-        tr.addEventListener("click", choose);
-        tr.addEventListener(
-          "dblclick",
-          guard(async () => {
-            choose();
-            await receiver(active.smiles, active.mode);
-          }),
-        );
-      });
   };
-  on("ligandSearch", fill, "input");
+  let searchTimer;
+  on(
+    "ligandSearch",
+    () => {
+      clearTimeout(searchTimer);
+      searchTimer = setTimeout(() => {
+        if ($("ligandSearch")) fill();
+      }, 80);
+    },
+    "input",
+  );
   on("libraryUse", () => {
     if (!$("favoriteSmiles").value.trim())
       throw Error("리간드를 선택하거나 SMILES를 입력하세요.");
@@ -833,7 +970,8 @@ function slotsDialog() {
 }
 async function refreshContacts() {
   const rows = await api("query/contacts", {});
-  $("contactsTable").innerHTML = table(
+  pagedTable(
+    "contactsTable",
     ["원자쌍", "거리 Å", "기준 Å"],
     rows.map((r) => [
       r.a + "–" + r.b,
@@ -841,15 +979,17 @@ async function refreshContacts() {
       r.threshold.toFixed(3),
     ]),
     (_, i) => `data-pair="${rows[i].a},${rows[i].b}"`,
+    () => {
+      $("contactsTable")
+        .querySelectorAll("[data-pair]")
+        .forEach(
+          (tr) =>
+            (tr.onclick = () =>
+              selectExact(tr.dataset.pair.split(",").map(Number))),
+        );
+    },
     "현재 기준의 근접 접촉이 없습니다.",
   );
-  $("contactsTable")
-    .querySelectorAll("[data-pair]")
-    .forEach(
-      (tr) =>
-        (tr.onclick = () =>
-          selectExact(tr.dataset.pair.split(",").map(Number))),
-    );
 }
 function contactSettings() {
   const v = state.project.metadata.contactCriteria || state.settings.contact;
@@ -871,14 +1011,15 @@ function contactSettings() {
   });
 }
 async function geometryDialog() {
+  const request = show(
+    "결합길이 · 결합각 · 이면각",
+    '<p class="content-note">기하 정보를 계산하고 있습니다…</p>',
+  );
   const rows = await api("query/geometry", {});
+  if (request !== modalEpoch || !modal.open) return;
   show(
     "결합길이 · 결합각 · 이면각",
-    `<p class="content-note">원자 ID를 순서대로 2개(거리), 3개(각도), 4개(이면각) 입력하세요.</p><div class="inline"><input id="measureIds" value="${selection.slice(0, 4).join(" ")}" placeholder="1 2 3">${btn("측정", "measureNow")}${btn("CSV 다운로드", "geometryCsv")}</div><p id="measureResult" class="content-note"></p><div id="geometryTable" class="table-scroll">${table(
-      ["종류", "원자 순서", "값", "단위", "근거"],
-      rows.map((r) => [r[0], r[1], Number(r[2]).toFixed(5), r[3], r[4]]),
-      (_, i) => `data-geometry="${i}"`,
-    )}</div>`,
+    `<p class="content-note">원자 ID를 순서대로 2개(거리), 3개(각도), 4개(이면각) 입력하세요.</p><div class="inline"><input id="measureIds" value="${selection.slice(0, 4).join(" ")}" placeholder="1 2 3">${btn("측정", "measureNow")}${btn("CSV 다운로드", "geometryCsv")}</div><p id="measureResult" class="content-note"></p><div id="geometryTable" class="table-scroll"></div>`,
   );
   const measure = async () => {
     const ids = $("measureIds")
@@ -892,19 +1033,28 @@ async function geometryDialog() {
   };
   on("measureNow", measure);
   on("geometryCsv", () => exportKind("csv"));
-  $("geometryTable")
-    .querySelectorAll("[data-geometry]")
-    .forEach(
-      (tr) =>
-        (tr.onclick = guard(async () => {
-          $("measureIds").value = (
-            rows[Number(tr.dataset.geometry)][1].match(/[A-Z][a-z]?\d+/g) || []
-          )
-            .map((s) => s.match(/\d+/)[0])
-            .join(" ");
-          await measure();
-        })),
-    );
+  pagedTable(
+    "geometryTable",
+    ["종류", "원자 순서", "값", "단위", "근거"],
+    rows.map((r) => [r[0], r[1], Number(r[2]).toFixed(5), r[3], r[4]]),
+    (_, i) => `data-geometry="${i}"`,
+    () => {
+      $("geometryTable")
+        .querySelectorAll("[data-geometry]")
+        .forEach(
+          (tr) =>
+            (tr.onclick = guard(async () => {
+              $("measureIds").value = (
+                rows[Number(tr.dataset.geometry)][1].match(/[A-Z][a-z]?\d+/g) ||
+                []
+              )
+                .map((s) => s.match(/\d+/)[0])
+                .join(" ");
+              await measure();
+            })),
+        );
+    },
+  );
 }
 async function bondsDialog() {
   show(
@@ -912,13 +1062,19 @@ async function bondsDialog() {
     `<p class="content-note">기존 명시 결합을 유지합니다. ASE 거리 후보는 사용자가 선택해 추가해야 확정됩니다.</p><div class="inline">${inputField("ASE 반경 배율", "auditScale", 1.25, "number", 'step="0.05"')}${inputField("금속 donor 최대거리 Å", "auditMetal", 2.85, "number", 'step="0.05"')}${btn("다시 검사", "auditRefresh")}</div><div id="auditTable" class="table-scroll"></div><div class="form-grid">${inputField("원자 ID 2개", "bondIds", selection.slice(0, 2).join(" "))}${selectField("결합차수", "bondOrder", [1, 1.5, 2, 3], 1)}${selectField("결합 방식", "bondKind", ["covalent", "coordinate"], "covalent")}</div><div class="dialog-actions">${btn("원자가 / 배위수 점검", "validateOrganic")}${btn("선택 후보 추가", "acceptBonds")}${btn("선택 결합 삭제", "deleteBonds")}${btn("추가 / 수정", "manualBond", true)}</div><pre id="validationOutput"></pre>`,
   );
   let rows = [];
+  const selectedAudit = new Set();
   const fill = async () => {
     const scale = Number($("auditScale").value),
       metal_max = Number($("auditMetal").value);
     if (scale < 1 || scale > 1.8 || metal_max < 2 || metal_max > 4)
       throw Error("반경 배율 1–1.8, 금속 거리 2–4 Å를 지정하세요.");
-    rows = await api("query/bonds", { scale, metal_max });
-    $("auditTable").innerHTML = table(
+    const host = $("auditTable");
+    const result = await api("query/bonds", { scale, metal_max });
+    if (host !== $("auditTable")) return;
+    rows = result;
+    selectedAudit.clear();
+    pagedTable(
+      "auditTable",
       ["선택", "원자쌍", "차수", "방식", "거리 Å", "상태"],
       rows.map((r, i) => [
         "",
@@ -929,27 +1085,30 @@ async function bondsDialog() {
         r.status,
       ]),
       (_, i) => `data-audit="${i}"`,
+      () => {
+        $("auditTable")
+          .querySelectorAll("[data-audit]")
+          .forEach((tr) => {
+            const index = Number(tr.dataset.audit);
+            tr.cells[0].innerHTML = `<input type="checkbox" data-audit-check="${index}" ${selectedAudit.has(index) ? "checked" : ""}>`;
+            tr.cells[0].firstElementChild.onchange = (e) => {
+              if (e.target.checked) selectedAudit.add(index);
+              else selectedAudit.delete(index);
+            };
+            tr.addEventListener("click", (e) => {
+              if (e.target.type !== "checkbox") {
+                const r = rows[index];
+                $("bondIds").value = r.a + " " + r.b;
+                $("bondOrder").value = r.order;
+                $("bondKind").value = r.kind;
+                selectExact([r.a, r.b]);
+              }
+            });
+          });
+      },
     );
-    $("auditTable")
-      .querySelectorAll("[data-audit]")
-      .forEach((tr) => {
-        const index = Number(tr.dataset.audit);
-        tr.cells[0].innerHTML = `<input type="checkbox" data-audit-check="${index}">`;
-        tr.addEventListener("click", (e) => {
-          if (e.target.type !== "checkbox") {
-            const r = rows[index];
-            $("bondIds").value = r.a + " " + r.b;
-            $("bondOrder").value = r.order;
-            $("bondKind").value = r.kind;
-            selectExact([r.a, r.b]);
-          }
-        });
-      });
   };
-  const checked = () =>
-    [...$("auditTable").querySelectorAll("[data-audit-check]:checked")].map(
-      (el) => rows[Number(el.dataset.auditCheck)],
-    );
+  const checked = () => [...selectedAudit].map((i) => rows[i]);
   on("auditRefresh", fill);
   on("manualBond", async () => {
     await edit("bond", {
@@ -1009,9 +1168,11 @@ async function resonanceDialog() {
     `<div class="inline"><input id="resonanceSmiles" value="${h(slot?.smiles || "CC(=O)[O-]")}">${btn("공명식 분석", "analyzeResonance")}</div><p class="content-note">Lewis 표현의 열거 결과입니다. 형식차수의 산술 평균은 양자화학적 결합차수나 통계 가중치가 아닙니다.</p><p id="resonanceSummary" class="badge"></p><div id="resonanceTable" class="table-scroll"></div><div id="resonanceImage" class="atom-diagram"></div><div class="dialog-actions">${btn("이 SMILES로 리간드 생성 / 재부착", "attachResonance", true)}</div>`,
   );
   const analyze = async () => {
+    const host = $("resonanceSummary");
     const r = await api("query/resonance", {
       smiles: $("resonanceSmiles").value,
     });
+    if (host !== $("resonanceSummary")) return;
     $("resonanceSummary").textContent =
       `공명식 ${r.forms}개${r.truncated ? " (제한됨)" : ""} · 방향족 원자 ${r.aromatic}개`;
     $("resonanceTable").innerHTML = table(
@@ -1024,7 +1185,8 @@ async function resonanceDialog() {
         smiles: r.smiles[i],
         mode: "coordinate",
       });
-      $("resonanceImage").innerHTML = diagram.svg;
+      if (host === $("resonanceSummary"))
+        $("resonanceImage").innerHTML = diagram.svg;
     };
     $("resonanceTable")
       .querySelectorAll("[data-resonance]")
@@ -1063,11 +1225,7 @@ function bankDialog() {
   const fill = () => {
     $("bankTable").innerHTML = table(
       ["이름", "원자수", "조성"],
-      state.bank.entries.map((e) => [
-        e.name,
-        e.project.atoms.length,
-        e.formula || "—",
-      ]),
+      state.bank.entries.map((e) => [e.name, e.atoms, e.formula || "—"]),
       (_, i) =>
         `data-bank-id="${h(state.bank.entries[i].id)}" class="${state.bank.entries[i].id === active ? "selected" : ""}"`,
     );
@@ -1106,7 +1264,16 @@ function appearanceDialog() {
     changedColors = new Set();
   show(
     "화면 설정 · 글꼴 / 색상",
-    `<p class="content-note">글씨는 현재 브라우저가 렌더링합니다. 맑은고딕·굴림·Arial·Calibri가 접속 PC에 없으면 동봉된 나눔고딕 등으로 대체됩니다.</p><div class="form-grid">${selectField("한글 글꼴", "koFont", ["맑은고딕", "굴림"], old.korean_font)}${selectField("영문 글꼴", "enFont", ["Arial", "Calibri"], old.english_font)}${inputField("글꼴 크기 pt", "fontSize", old.font_size, "number", 'min="8" max="24"')}${selectField("화면 모드", "theme", ["dark", "light"], old.theme)}</div><h3>항목별 글자 색상</h3><div class="settings-grid">${Object.entries(
+    `<p class="content-note">글씨는 현재 브라우저가 렌더링합니다. 맑은고딕·굴림·Arial·Calibri가 접속 PC에 없으면 동봉된 나눔고딕 등으로 대체됩니다.</p><div class="form-grid">${selectField("한글 글꼴", "koFont", ["맑은고딕", "굴림"], old.korean_font)}${selectField("영문 글꼴", "enFont", ["Arial", "Calibri"], old.english_font)}${inputField("글꼴 크기 pt", "fontSize", old.font_size, "number", 'min="8" max="24"')}${selectField("화면 모드", "theme", ["dark", "light"], old.theme)}${selectField(
+      "3D 표시 품질",
+      "viewerQuality",
+      [
+        ["auto", "자동 (권장)"],
+        ["low", "속도 우선"],
+        ["high", "고화질"],
+      ],
+      old.viewer_quality || "auto",
+    )}${selectField("목표 프레임", "viewerFps", [20, 30, 60], old.viewer_fps || 30)}</div><h3>항목별 글자 색상</h3><div class="settings-grid">${Object.entries(
       {
         body: "본문",
         heading: "제목",
@@ -1145,6 +1312,8 @@ function appearanceDialog() {
     if (draft.font_size < 8 || draft.font_size > 24)
       throw Error("글꼴 크기는 8–24 pt입니다.");
     draft.theme = $("theme").value;
+    draft.viewer_quality = $("viewerQuality").value;
+    draft.viewer_fps = Number($("viewerFps").value);
     draft.selection = $("selectionColor").value;
     draft.text_colors = { ...old.text_colors };
     for (const key of changedColors)
@@ -1213,7 +1382,7 @@ function appearanceDialog() {
     "change",
   );
   on("previewAppearance", () => {
-    state.settings = gather();
+    state.settings = structuredClone(gather());
     applyAppearance();
     viewer.draw();
   });
@@ -1385,6 +1554,7 @@ function bindShell() {
           document
             .querySelectorAll(`[data-${attr}]`)
             .forEach((v) => v.classList.toggle("active", v === b));
+          renderLazyPanels();
           if (b.dataset[attr] === "contacts") await refreshContacts();
         })),
     );

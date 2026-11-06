@@ -28,7 +28,7 @@ try:
 except ImportError as exc:
     raise SystemExit("ASE가 필요합니다. python -m pip install ase") from exc
 from PIL import Image, ImageDraw, ImageFont
-VERSION = "4.1.0"
+VERSION = "4.2.0"
 PT = Chem.GetPeriodicTable()
 SYMBOLS = chemical_symbols[1:119]
 METALS = set(SYMBOLS) - set("H He B C N O F Ne Si P S Cl Ar Ge As Se Br Kr Sb Te I Xe At Rn Ts Og".split())
@@ -38,7 +38,7 @@ LEGACY_HTML = "eJy8vW2TXMWVLvqdX7FPE3ONPN2tnZn7tSU6RjTC4gwghSR7bE84HNVdu9U1tLr6V
 # VESTA defines H–Am and the generic XX=(0.3,0.3,0.3); other elements use XX.
 VESTA_COLORS = {'H': '#ffcccc', 'D': '#ccccff', 'He': '#fce9cf', 'Li': '#86e074', 'Be': '#5fd87b', 'B': '#20a20f', 'C': '#814929', 'N': '#b0bae6', 'O': '#ff0300', 'F': '#b0bae6', 'Ne': '#ff38b5', 'Na': '#fadd3d', 'Mg': '#fc7c16', 'Al': '#81b3d6', 'Si': '#1b3bfa', 'P': '#c19cc3', 'S': '#fffa00', 'Cl': '#32fc03', 'Ar': '#cffec5', 'K': '#a122f7', 'Ca': '#5b96be', 'Sc': '#b663ac', 'Ti': '#78caff', 'V': '#e61a00', 'Cr': '#00009e', 'Mn': '#a9099e', 'Fe': '#b57200', 'Co': '#0000af', 'Ni': '#b8bcbe', 'Cu': '#2247dd', 'Zn': '#8f9082', 'Ga': '#9fe474', 'Ge': '#7e6fa6', 'As': '#75d057', 'Se': '#9aef10', 'Br': '#7f3103', 'Kr': '#fac1f3', 'Rb': '#ff0099', 'Sr': '#00ff27', 'Y': '#67988e', 'Zr': '#00ff00', 'Nb': '#4cb376', 'Mo': '#b486b0', 'Tc': '#cdafcb', 'Ru': '#cfb8ae', 'Rh': '#ced2ab', 'Pd': '#c2c4b9', 'Ag': '#b8bcbe', 'Cd': '#f31fdc', 'In': '#d781bb', 'Sn': '#9b8fba', 'Sb': '#d88350', 'Te': '#ada252', 'I': '#8f1f8b', 'Xe': '#9ba1f8', 'Cs': '#0fffb9', 'Ba': '#1ef02d', 'La': '#5ac449', 'Ce': '#d1fd06', 'Pr': '#fde206', 'Nd': '#fc8e07', 'Pm': '#0000f5', 'Sm': '#fd067d', 'Eu': '#fb08d5', 'Gd': '#c004ff', 'Tb': '#7104fe', 'Dy': '#3106fd', 'Ho': '#0742fb', 'Er': '#49733b', 'Tm': '#0000e0', 'Yb': '#27fdf4', 'Lu': '#26fdb5', 'Hf': '#b4b459', 'Ta': '#b79b56', 'W': '#8e8a80', 'Re': '#b3b18e', 'Os': '#c9b179', 'Ir': '#c9cf73', 'Pt': '#ccc6bf', 'Au': '#feb338', 'Hg': '#d3b8cc', 'Tl': '#96896d', 'Pb': '#53535b', 'Bi': '#d230f8', 'Po': '#0000ff', 'At': '#0000ff', 'Rn': '#ffff00', 'Fr': '#000000', 'Ra': '#6eaa59', 'Ac': '#649e73', 'Th': '#26fe78', 'Pa': '#29fb35', 'U': '#7aa2aa', 'Np': '#4c4c4c', 'Pu': '#4c4c4c', 'Am': '#4c4c4c'}
 DEFAULT_ELEMENT_COLORS = {s:VESTA_COLORS.get(s, "#4c4c4c") for s in SYMBOLS}
-DEFAULTS = {"theme":"dark", "font_size":11, "font_family":"Malgun Gothic", "korean_font":"맑은고딕", "english_font":"Arial", "viewer_fps":30, "interaction_lod":True, "selection":"#00e5ff",
+DEFAULTS = {"theme":"dark", "font_size":11, "font_family":"Malgun Gothic", "korean_font":"맑은고딕", "english_font":"Arial", "viewer_fps":30, "viewer_quality":"auto", "interaction_lod":True, "selection":"#00e5ff",
  "element_colors":DEFAULT_ELEMENT_COLORS, "text_colors":{}, "ff":"MMFF94", "favorites":[],
  "contact":{"mode":"radii", "vdw":0.75,"covalent":1.18,"minimum":2.0}, "last_directory":str(Path.cwd())}
 SOURCES = {
@@ -205,9 +205,9 @@ def clashes(p,criteria=None):
         if d<cut:out.append({'a':a['id'],'b':b['id'],'distance':d,'threshold':cut})
     return sorted(out,key=lambda r:r['distance']-r['threshold'])
 
-def measurement(p,ids):
+def measurement(p,ids,atom_index=None):
     if len(set(ids))!=len(ids) or not 2<=len(ids)<=4:raise ValueError('서로 다른 원자 2, 3, 4개를 순서대로 선택하세요.')
-    a=index_atoms(p);r=[xyz(a[i]) for i in ids]
+    a=atom_index if atom_index is not None else index_atoms(p);r=[xyz(a[i]) for i in ids]
     if len(r)==2:return ('거리',float(np.linalg.norm(r[0]-r[1])),'Å')
     u,v=r[0]-r[1],r[2]-r[1]
     if min(np.linalg.norm(u),np.linalg.norm(v))<1.e-9:raise ValueError('겹친 원자는 각도를 정의할 수 없습니다.')
@@ -220,12 +220,12 @@ def measurement(p,ids):
 def geometry_rows(p):
     a=index_atoms(p);g=adjacency(p);rows=[]
     for b in p['bonds']:
-        ids=[b['a'],b['b']];kind,value,unit_=measurement(p,ids)
+        ids=[b['a'],b['b']];kind,value,unit_=measurement(p,ids,a)
         rows.append(('거리','–'.join(a[i]['element']+str(i) for i in ids),value,unit_,b.get('source','explicit')))
     for center,ns in g.items():
         for u,v in itertools.combinations(ns,2):
             try:
-                ids=[u,center,v];kind,value,unit_=measurement(p,ids)
+                ids=[u,center,v];kind,value,unit_=measurement(p,ids,a)
                 rows.append(('각도','–'.join(a[i]['element']+str(i) for i in ids),value,unit_,'explicit graph'))
             except ValueError:pass
     return rows
@@ -453,12 +453,66 @@ def placement_score(p,new_atoms,new_bonds):
     ids={a['id'] for a in new_atoms};c=p['metadata'].get('contactCriteria',DEFAULTS['contact'])
     return sum((v['threshold']-v['distance'])**2 for v in clashes(test,c) if v['a'] in ids or v['b'] in ids)
 
+class PlacementScorer:
+    """Exact rigid-pose contact score; reuse graph, radii and static environment.
+
+    Intrafragment distances do not change under rigid rotation. Only cross
+    distances need evaluating for each pose. Large environments use a KD-tree;
+    small pairs use NumPy, avoiding repeated graph/tree construction entirely.
+    """
+    def __init__(self,p,new_atoms,new_bonds):
+        from scipy.spatial import cKDTree
+        self.criteria=p['metadata'].get('contactCriteria',DEFAULTS['contact'])
+        self.old=p['atoms'];self.new=new_atoms
+        self.old_xyz=np.array([xyz(a) for a in self.old],dtype=float).reshape(-1,3)
+        self.excluded=excluded_pairs(dict(atoms=self.old+new_atoms,bonds=p['bonds']+new_bonds))
+        elements={a['element'] for a in self.old+new_atoms}
+        self.radii={s:(radius(s,'vdw'),radius(s)) for s in elements}
+        self.old_r=np.array([self.radii[a['element']] for a in self.old],dtype=float).reshape(-1,2)
+        self.new_r=np.array([self.radii[a['element']] for a in new_atoms],dtype=float).reshape(-1,2)
+        self.dense=len(self.old)*len(new_atoms)<=250000
+        if self.dense:
+            self.cuts=self.cutoffs(self.new_r[:,None,:],self.old_r[None,:,:])
+            self.allowed=np.array([[bond_key(a['id'],b['id']) not in self.excluded and not(a.get('core') and b.get('core')) for b in self.old] for a in new_atoms],dtype=bool).reshape(len(new_atoms),len(self.old))
+        else:
+            self.tree=cKDTree(self.old_xyz)
+            self.maxcut=float(np.max(self.cutoffs(self.new_r.max(axis=0),self.old_r.max(axis=0))))
+        points=np.array([xyz(a) for a in new_atoms])
+        # Spatial pairs also bound memory for a large, sparse ligand fragment.
+        self.internal=0.
+        if len(new_atoms)>1:
+            maxcut=float(self.cutoffs(self.new_r.max(axis=0),self.new_r.max(axis=0)))
+            pairs=cKDTree(points).query_pairs(maxcut,output_type='ndarray')
+            if len(pairs):
+                i,j=pairs[:,0],pairs[:,1]
+                allowed=np.array([bond_key(new_atoms[u]['id'],new_atoms[v]['id']) not in self.excluded and not(new_atoms[u].get('core') and new_atoms[v].get('core')) for u,v in pairs],dtype=bool)
+                distances=np.linalg.norm(points[i]-points[j],axis=1)
+                overlap=np.maximum(0,self.cutoffs(self.new_r[i],self.new_r[j])-distances)
+                self.internal=float(np.sum(overlap[allowed]**2))
+    def cutoffs(self,a,b):
+        c=self.criteria
+        if c.get('mode')=='minimum':return np.full(np.broadcast_shapes(a.shape[:-1],b.shape[:-1]),float(c.get('minimum',2.)))
+        return np.maximum((a[...,0]+b[...,0])*float(c.get('vdw',.75)),(a[...,1]+b[...,1])*float(c.get('covalent',1.18)))
+    def score(self,points):
+        if not len(self.old):return self.internal
+        if self.dense:
+            delta=np.asarray(points)[:,None,:]-self.old_xyz[None,:,:]
+            distances=np.sqrt(np.einsum('ijk,ijk->ij',delta,delta))
+            overlap=np.maximum(0,self.cuts-distances)
+            return self.internal+float(np.sum(overlap[self.allowed]**2))
+        neighbors=self.tree.query_ball_point(points,self.maxcut)
+        pairs=[(i,j) for i,ns in enumerate(neighbors) for j in ns if bond_key(self.new[i]['id'],self.old[j]['id']) not in self.excluded and not(self.new[i].get('core') and self.old[j].get('core'))]
+        if not pairs:return self.internal
+        ix=np.asarray(pairs,dtype=int);i,j=ix[:,0],ix[:,1]
+        overlap=np.maximum(0,self.cutoffs(self.new_r[i],self.old_r[j])-np.linalg.norm(np.asarray(points)[i]-self.old_xyz[j],axis=1))
+        return self.internal+float(np.sum(overlap**2))
+
 def outward_direction(p,parent):
     a=index_atoms(p);g=adjacency(p);r=xyz(a[parent]);ds=[unit(r-xyz(a[n])) for n in g[parent]]
     return unit(sum(ds,np.zeros(3)),unit(r-np.mean([xyz(v) for v in p['atoms']],axis=0)))
 
 def attach_fragment(p,smiles,parent=None,slot_id=None,mode='covalent',length=None,direction=None,
-                    replace_h=True,ff_choice='MMFF94',cleanup=True,cancel=None,attachment_index=None):
+                    replace_h=True,ff_choice='MMFF94',cleanup=True,cancel=None,attachment_index=None,fragment_cache=None):
     slot=next((s for s in p['slots'] if s['id']==slot_id),None) if slot_id else None
     if slot_id and slot is None:raise ValueError('결합 자리가 없습니다.')
     if slot:
@@ -476,7 +530,12 @@ def attach_fragment(p,smiles,parent=None,slot_id=None,mode='covalent',length=Non
     a=index_atoms(p)
     if any(i not in a for i in parents):raise ValueError('부모 원자가 삭제되어 리간드를 부착할 수 없습니다.')
     if any(a[i]['element']=='H' for i in parents):raise ValueError('H에 결합을 덧붙일 수 없습니다. H를 치환할 부모 원자를 선택하세요.')
-    frag=build_fragment(smiles,kind,mode,ff_choice,conformers=4,cancel=cancel,attachment_index=attachment_index)
+    if attachment_index is not None and (isinstance(attachment_index,bool) or not isinstance(attachment_index,(int,np.integer))):raise ValueError('결합 원자 번호는 정수여야 합니다.')
+    key=(smiles,kind,mode,ff_choice,attachment_index)
+    frag=fragment_cache.get(key) if fragment_cache is not None else None
+    if frag is None:
+        frag=build_fragment(smiles,kind,mode,ff_choice,conformers=4,cancel=cancel,attachment_index=attachment_index)
+        if fragment_cache is not None:fragment_cache[key]=frag
     if replace_h and kind=='A' and mode=='covalent' and a[parents[0]]['element'] not in METALS:
         hs=[i for i in adjacency(p)[parents[0]] if a[i]['element']=='H']
         if hs:delete_atoms(p,[hs[0]]);a=index_atoms(p)
@@ -509,16 +568,16 @@ def attach_fragment(p,smiles,parent=None,slot_id=None,mode='covalent',length=Non
                 z=1-2*(k+.5)/20;phi=k*math.pi*(3-math.sqrt(5));dirs.append(np.array([math.sqrt(1-z*z)*math.cos(phi),math.sqrt(1-z*z)*math.sin(phi),z]))
         root=imap[frag['anchor']];new_bonds.append({'a':root if mode=='coordinate' else parent,'b':parent if mode=='coordinate' else root,
             'order':1.,'kind':mode,'source':'explicit attachment'})
-        best=None
+        best=None;scorer=PlacementScorer(p,new_atoms,new_bonds)
+        neighbors=adjacency(p)[parent];neighbor_dirs=[unit(xyz(a[n])-parent_xyz) for n in neighbors]
         for d in dirs:
             if cancel and cancel.is_set():raise InterruptedError('부착을 취소했습니다.')
             r=rotate_matrix(frag['direction'],d);base=(points-anchor_xyz)@r.T
+            angle_penalty=sum(max(0.,float(np.dot(d,nd))-.35)**2 for nd in neighbor_dirs)*25.
             for theta in np.linspace(0,2*math.pi,12 if cleanup else 1,endpoint=False):
+                if cancel and cancel.is_set():raise InterruptedError('부착을 취소했습니다.')
                 fitted=base@axis_rotation(d,theta).T+parent_xyz+length*d
-                for atom,rp in zip(new_atoms,fitted):set_xyz(atom,rp)
-                neighbors=adjacency(p)[parent]
-                angle_penalty=sum(max(0.,float(np.dot(d,unit(xyz(a[n])-parent_xyz)))-.35)**2 for n in neighbors)*25.
-                score=placement_score(p,new_atoms,new_bonds)+angle_penalty+.02*(1-float(np.dot(d,preferred)))
+                score=scorer.score(fitted)+angle_penalty+.02*(1-float(np.dot(d,preferred)))
                 if best is None or score<best[0]:best=(score,fitted.copy(),d.copy())
         for atom,rp in zip(new_atoms,best[1]):set_xyz(atom,rp)
         slot.update(bondLength=length,direction=best[2].tolist(),anchor=root,mode=mode)
@@ -640,12 +699,14 @@ def cleanup_project(p,cancel=None):
         boundary=[b for b in p['bonds'] if (b['a'] in ids)!=(b['b'] in ids)]
         if len(boundary)!=1:continue
         points=np.array([xyz(a[i]) for i in sorted(ids)]);origin=xyz(a[host]);axis=xyz(a[s['anchor']])-origin
+        environment=dict(atoms=[v for v in p['atoms'] if v['id'] not in ids],bonds=[b for b in p['bonds'] if not({b['a'],b['b']}&ids)],metadata=p['metadata'])
+        moving=[a[i] for i in sorted(ids)];moving_bonds=[b for b in p['bonds'] if {b['a'],b['b']}&ids]
+        scorer=PlacementScorer(environment,moving,moving_bonds)
         best_points=points.copy();best=float('inf')
         for theta in np.linspace(0,2*math.pi,36,endpoint=False):
             if cancel and cancel.is_set():raise InterruptedError('겹침 정리를 취소했습니다.')
             candidate=(points-origin)@axis_rotation(axis,theta).T+origin
-            for i,r in zip(sorted(ids),candidate):set_xyz(a[i],r)
-            val=sum((v['threshold']-v['distance'])**2 for v in clashes(p) if v['a'] in ids or v['b'] in ids)
+            val=scorer.score(candidate)
             if val<best:best=val;best_points=candidate.copy()
         for i,r in zip(sorted(ids),best_points):set_xyz(a[i],r)
     return p
@@ -2449,6 +2510,7 @@ def main(argv=None):
     parser.add_argument('--port',type=int,help='web port (prompt when omitted; default 8765; 0 selects a free port)')
     parser.add_argument('--host',default='127.0.0.1',help='bind address (default: 127.0.0.1)')
     parser.add_argument('--no-browser',action='store_true',help='print the URL without opening a browser (HPC/SSH)')
+    parser.add_argument('--open-browser',action='store_true',help='explicitly open a browser even in an SSH session')
     parser.add_argument('--fresh',action='store_true',help='start with a bare Sn12 core instead of recovering the web workspace')
     args=parser.parse_args(argv)
     if args.check:

@@ -984,3 +984,11 @@ a {
     font-size: 17px;
   }
 }
+
+#saveStatus {
+  color: var(--muted);
+  white-space: nowrap;
+}
+#saveStatus.save-error {
+  color: var(--danger);
+}

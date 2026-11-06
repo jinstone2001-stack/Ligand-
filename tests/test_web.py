@@ -135,7 +135,7 @@ class HTTPTests(unittest.TestCase):
  def test_http_async_attachment_and_download(self):
   code,raw,_=self.request('/api/task/attach',dict(revision=0,cleanup=False,plans=[dict(parents=[1],smiles='CCN',mode='coordinate',attachment_index=2)]));self.assertEqual(code,200,raw)
   self.ws.job['thread'].join(10);code,raw,_=self.request('/api/job');self.assertEqual(json.loads(raw)['job']['status'],'done')
-  code,raw,_=self.request('/api/query/export',dict(kind='project'));self.assertEqual(code,200);saved=json.loads(json.loads(raw)['text']);self.assertEqual(saved['appVersion'],'4.1.0')
+  code,raw,_=self.request('/api/query/export',dict(kind='project'));self.assertEqual(code,200);saved=json.loads(json.loads(raw)['text']);self.assertEqual(saved['appVersion'],c.VERSION)
 
 class LauncherTests(unittest.TestCase):
  def test_prompt_and_explicit_port_selection(self):
@@ -167,10 +167,10 @@ class LauncherTests(unittest.TestCase):
     for line in process.stdout:lines.put(line.strip())
    threading.Thread(target=read,daemon=True).start()
    try:
-    banner=lines.get(timeout=12);url=lines.get(timeout=12);self.assertIn('4.1.0',banner)
+    banner=lines.get(timeout=12);url=lines.get(timeout=12);self.assertIn(c.VERSION,banner)
     parsed=urlsplit(url);token=parse_qs(parsed.fragment)['token'][0]
     conn=http.client.HTTPConnection(parsed.hostname,parsed.port,timeout=5);conn.request('GET','/api/state',headers={'X-Tinoxo-Token':token})
-    response=conn.getresponse();self.assertEqual(response.status,200);self.assertEqual(json.loads(response.read())['version'],'4.1.0');conn.close()
+    response=conn.getresponse();self.assertEqual(response.status,200);self.assertEqual(json.loads(response.read())['version'],c.VERSION);conn.close()
    finally:process.terminate();process.communicate(timeout=5)
 
 if __name__=='__main__':unittest.main()

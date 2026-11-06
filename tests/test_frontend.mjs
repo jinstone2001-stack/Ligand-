@@ -106,7 +106,7 @@ const wait = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 async function until(check, message, timeout = 12000) {
   const end = Date.now() + timeout;
   while (Date.now() < end) {
-    if (check()) return;
+    if (await check()) return;
     await wait(30);
   }
   throw Error(message + "; toast=" + $("toast").textContent);
@@ -391,6 +391,53 @@ await until(
 await wait(150);
 assert.ok((await current()).project.atoms.some((a) => a.x === 1.234));
 passed("atom form commits and prevents navigation synchronously");
+// Settings should keep the immutable model, coordinate text node and selection rows.
+await until(() => viewer.cachedProject, "model cache");
+const modelBefore = viewer.cachedProject,
+  xyzNode = $("coordinates").firstChild,
+  rowBefore = $("atomList").querySelector("tr[data-id]");
+const revBeforeSettings = (await current()).revision;
+set($("ff"), $("ff").value === "UFF" ? "MMFF94" : "UFF");
+await until(
+  async () => (await current()).revision === revBeforeSettings + 1,
+  "settings commit",
+);
+await wait(100);
+assert.equal(viewer.cachedProject, modelBefore);
+assert.equal($("coordinates").firstChild, xyzNode);
+assert.equal($("atomList").querySelector("tr[data-id]"), rowBefore);
+passed("settings updates retain model and unchanged DOM nodes");
+const revBeforeBurst = (await current()).revision;
+const fixedButton = document.querySelector('[data-action="fixed"]');
+for (let i = 0; i < 3; i++) click(fixedButton);
+await until(
+  async () => (await current()).revision === revBeforeBurst + 3,
+  "queued rapid edits",
+);
+assert.ok(!$("toast").textContent.includes("다른 탭"));
+await until(
+  () => $("saveStatus").textContent === "자동 저장됨",
+  "background save status",
+);
+passed("rapid edits serialize revisions and report completed autosave");
+await action("geometry");
+await until(
+  () => $("geometryTable").querySelector('[data-page="next"]'),
+  "geometry pagination",
+);
+assert.ok($("geometryTable").querySelectorAll("tbody tr").length <= 150);
+click($("geometryTable").querySelector('[data-page="next"]'));
+assert.equal(
+  $("geometryTable").querySelector("[data-geometry]").dataset.geometry,
+  "150",
+);
+click($("geometryTable").querySelector("[data-geometry]"));
+await until(
+  () => $("measureResult").textContent.length > 0,
+  "paged geometry selection",
+);
+close();
+passed("large geometry lists page without losing row selection");
 assert.deepEqual(errors, []);
 console.log(
   `DOM integration: ${count} scenarios passed (Canvas mocked; browser/GPU not tested).`,

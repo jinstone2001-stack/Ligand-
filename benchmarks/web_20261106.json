@@ -1,0 +1,245 @@
+{
+  "baseline_commit": "2b73badafbf938be0dcc5f8d236531c084ba3405",
+  "version": "4.1.1",
+  "python": "3.12.14",
+  "note": "Local wall-clock CPU/API work. Edit timing includes serialization, old synchronous persistence and new queued background save. Not browser or network timing. 5 samples per case after warmup.",
+  "max_attachment_coordinate_difference_A": 0.0,
+  "results": [
+    {
+      "version": "before",
+      "engine": [
+        {
+          "action": "attach",
+          "smiles": "[*:1]CCCCCC",
+          "median_cpu_ms": 474.123,
+          "median_ms": 474.127,
+          "samples_ms": [
+            470.359,
+            507.691,
+            474.127,
+            475.641,
+            458.779
+          ]
+        },
+        {
+          "action": "attach",
+          "smiles": "c1ccccc1",
+          "median_cpu_ms": 307.744,
+          "median_ms": 309.015,
+          "samples_ms": [
+            317.909,
+            288.866,
+            279.504,
+            325.621,
+            309.015
+          ]
+        },
+        {
+          "action": "cleanup_86_atoms",
+          "median_cpu_ms": 577.412,
+          "median_ms": 577.413,
+          "samples_ms": [
+            577.413,
+            613.008,
+            548.754,
+            569.592,
+            652.067
+          ]
+        },
+        {
+          "action": "geometry_688_atoms",
+          "rows": 3120,
+          "median_cpu_ms": 192.609,
+          "median_ms": 192.612,
+          "samples_ms": [
+            192.612,
+            183.162,
+            194.461,
+            188.894,
+            204.461
+          ]
+        }
+      ],
+      "edits": [
+        {
+          "atoms": 86,
+          "bank_entries": 0,
+          "median_cpu_ms": 3.079,
+          "median_ms": 3.077,
+          "samples_ms": [
+            4.366,
+            3.034,
+            3.05,
+            3.077,
+            3.445
+          ],
+          "response_bytes": 27643,
+          "gzip_bytes": 5661
+        },
+        {
+          "atoms": 86,
+          "bank_entries": 20,
+          "median_cpu_ms": 71.235,
+          "median_ms": 71.233,
+          "samples_ms": [
+            71.233,
+            74.119,
+            63.102,
+            62.632,
+            73.025
+          ],
+          "response_bytes": 527541,
+          "gzip_bytes": 39567
+        },
+        {
+          "atoms": 86,
+          "bank_entries": 100,
+          "median_cpu_ms": 371.961,
+          "median_ms": 371.97,
+          "samples_ms": [
+            333.649,
+            476.754,
+            374.961,
+            371.97,
+            346.771
+          ],
+          "response_bytes": 2527221,
+          "gzip_bytes": 178130
+        },
+        {
+          "atoms": 688,
+          "bank_entries": 20,
+          "median_cpu_ms": 535.127,
+          "median_ms": 535.137,
+          "samples_ms": [
+            525.921,
+            564.314,
+            535.137,
+            528.31,
+            564.271
+          ],
+          "response_bytes": 4265079,
+          "gzip_bytes": 461992
+        }
+      ]
+    },
+    {
+      "version": "after",
+      "engine": [
+        {
+          "action": "attach",
+          "smiles": "[*:1]CCCCCC",
+          "median_cpu_ms": 76.041,
+          "median_ms": 76.036,
+          "samples_ms": [
+            90.522,
+            68.043,
+            80.742,
+            71.493,
+            76.036
+          ]
+        },
+        {
+          "action": "attach",
+          "smiles": "c1ccccc1",
+          "median_cpu_ms": 27.694,
+          "median_ms": 27.692,
+          "samples_ms": [
+            30.474,
+            28.761,
+            27.692,
+            24.846,
+            23.971
+          ]
+        },
+        {
+          "action": "cleanup_86_atoms",
+          "median_cpu_ms": 32.101,
+          "median_ms": 32.099,
+          "samples_ms": [
+            29.366,
+            29.988,
+            32.099,
+            34.022,
+            34.405
+          ]
+        },
+        {
+          "action": "geometry_688_atoms",
+          "rows": 3120,
+          "median_cpu_ms": 61.153,
+          "median_ms": 61.148,
+          "samples_ms": [
+            53.709,
+            53.431,
+            61.148,
+            62.514,
+            76.878
+          ]
+        }
+      ],
+      "edits": [
+        {
+          "atoms": 86,
+          "bank_entries": 0,
+          "median_cpu_ms": 0.679,
+          "median_ms": 0.678,
+          "samples_ms": [
+            1.412,
+            0.578,
+            0.678,
+            0.4,
+            0.96
+          ],
+          "response_bytes": 25267,
+          "gzip_bytes": 4457
+        },
+        {
+          "atoms": 86,
+          "bank_entries": 20,
+          "median_cpu_ms": 0.581,
+          "median_ms": 0.726,
+          "samples_ms": [
+            0.928,
+            0.726,
+            0.398,
+            0.296,
+            1.775
+          ],
+          "response_bytes": 25267,
+          "gzip_bytes": 4457
+        },
+        {
+          "atoms": 86,
+          "bank_entries": 100,
+          "median_cpu_ms": 0.412,
+          "median_ms": 0.414,
+          "samples_ms": [
+            1.053,
+            0.746,
+            0.353,
+            0.311,
+            0.414
+          ],
+          "response_bytes": 25267,
+          "gzip_bytes": 4457
+        },
+        {
+          "atoms": 688,
+          "bank_entries": 20,
+          "median_cpu_ms": 2.804,
+          "median_ms": 2.873,
+          "samples_ms": [
+            3.71,
+            3.93,
+            2.873,
+            2.758,
+            2.545
+          ],
+          "response_bytes": 203245,
+          "gzip_bytes": 22062
+        }
+      ]
+    }
+  ]
+}
