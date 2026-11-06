@@ -1,5 +1,15 @@
 # Changes
 
+## 4.1.0 — 2026-11-06
+
+- Make the local browser UI the default. Prompt for a port when run interactively; support `--port`, automatic free port `0`, browser auto-open, `--no-browser`, `--fresh`, and isolated `--config-dir` workspaces. Keep `--native` for the Tk editor.
+- Add a dependency-free Python HTTP adapter that reuses the original RDKit/ASE chemistry and Gaussian builder. No Tk, X11, Node.js, third-party web framework or CDN is required for web runtime.
+- Move the editor UI to HTML/CSS, with browser font rendering, an orthographic WebGL molecular view (Canvas 2D fallback), SVG atom picking, and browser-local camera/selection operations.
+- Connect core/example/hydroxo operations, shared/per-atom ligand plans, R/L/P/additional slots, atom/bond/contact/geometry/resonance controls, MMFF/UFF tasks and cancellation, structure bank, undo/redo, settings, and Gaussian quick/custom/export workflows.
+- Add atomic web workspace recovery, browser file uploads/downloads, explicit server-path saves, and PNG/SVG exports of the current molecular view. Previous project files and the original legacy HTML compatibility export remain supported.
+- Bind to loopback by default, protect editing APIs with a per-run token and same-origin checks, reject stale revisions, and serve only shipped UI/font assets. A failed edit/task leaves the previous molecular project intact.
+- Add HTTP/workspace/launcher and DOM integration regressions. DOM checks use a mocked Canvas against the real Python API; actual browser appearance and GPU execution could not be verified because the browser runtime was unavailable.
+
 ## 4.0.0 — 2026-11-06
 
 - Add a clickable, 2× rasterized RDKit 2D ligand popup with the original SMILES atom numbers, a selectable atom list, and explicit confirmation/cancellation. Library selection opens the popup; manual SMILES are checked before adding/applying a plan.

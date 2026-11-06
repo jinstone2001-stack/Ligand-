@@ -8,3 +8,5 @@ tinoxo-settings/
 *.rwf
 *.log
 fonts/user/
+node_modules/
+web-workspace.json

@@ -1,4 +1,4 @@
-# Install Tk separately via conda (tk=8.6) or your HPC's Python/Tk module.
+# Browser UI needs no Tk. Optional --native: install Tk 8.6 separately.
 numpy>=1.24,<3
 scipy>=1.10,<2
 rdkit>=2024.3.1

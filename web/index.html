@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="ko">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Tin Oxo Studio 4.1</title>
+    <link rel="stylesheet" href="/web/style.css" />
+    <script type="module" src="/web/app.js"></script>
+  </head>
+  <body>
+    <div id="connection" class="connection">
+      로컬 작업 공간에 연결하고 있습니다…
+    </div>
+    <header class="topbar">
+      <div class="brand">
+        <span class="brandmark">Sn</span>
+        <div>
+          <strong>TIN OXO <b>STUDIO</b></strong
+          ><small>MOLECULAR WORKSPACE <span>4.1</span></small>
+        </div>
+      </div>
+      <div class="top-actions">
+        <span class="local-badge"><i></i> LOCAL SESSION</span
+        ><button data-action="open">불러오기</button
+        ><button data-action="save">프로젝트 저장</button
+        ><button data-action="export">내보내기</button
+        ><button data-action="gaussian" class="primary">
+          Gaussian 16 <span>↗</span></button
+        ><button data-action="appearance" title="화면 설정">화면 설정</button>
+      </div>
+    </header>
+    <main class="workspace">
+      <aside class="left panel">
+        <nav class="tabs">
+          <button data-left="build" class="active">코어 / 리간드</button
+          ><button data-left="calculate">계산 / 검사</button>
+        </nav>
+        <section id="build" class="left-content">
+          <div class="section-title">
+            <span>01</span>
+            <h2>코어 선택</h2>
+          </div>
+          <div class="core-grid">
+            <button class="core active" data-core="12">
+              <strong>Sn₁₂</strong><small>CAGE</small></button
+            ><button class="core" data-core="6">
+              <strong>Sn₆</strong><small>CLUSTER</small></button
+            ><button class="core" data-core="3">
+              <strong>Sn₃</strong><small>RING</small>
+            </button>
+          </div>
+          <button data-action="reset" class="wide">빈 코어로 초기화</button
+          ><button data-action="example" class="wide">예제 완성</button
+          ><button data-action="hydroxo" class="wide subtle">
+            Sn12 OH 6자리 → 리간드
+          </button>
+          <p class="hint">
+            문헌 코어 좌표를 바탕으로 구조를 설계합니다. 총전하와 다중도는 계산
+            전 확인하세요.
+          </p>
+          <div class="section-title">
+            <span>02</span>
+            <h2>리간드 편집</h2>
+          </div>
+          <button data-action="attach" class="primary wide">
+            ＋ 선택 원자에 리간드 붙이기</button
+          ><button data-action="library" class="wide">
+            범용 리간드 / 내 SMILES</button
+          ><button data-action="slots" class="wide">R / L / P 자리 편집</button>
+          <div class="info-box">
+            <strong>결합 원자를 직접 선택하세요</strong>
+            <p>
+              리간드 구조 팝업에서 결합할 원자를 클릭합니다. 같은 선택을 여러
+              자리에 적용할 수 있습니다.
+            </p>
+          </div>
+          <div class="section-title">
+            <span>03</span>
+            <h2>구조 보관</h2>
+          </div>
+          <button data-action="bank" class="wide">이름별 구조 보관함</button
+          ><button data-action="copy" class="wide">XYZ 좌표 복사</button
+          ><button data-action="help" class="text-button wide">
+            사용 안내 / 출처 ↗
+          </button>
+        </section>
+        <section id="calculate" class="left-content hidden">
+          <div class="section-title">
+            <span>01</span>
+            <h2>초기 구조 정리</h2>
+          </div>
+          <label
+            >힘장<select id="ff">
+              <option>MMFF94</option>
+              <option>UFF</option>
+            </select></label
+          ><label
+            >최적화 범위<select id="scope">
+              <option value="ligands">리간드 / 코어 고정</option>
+              <option value="all">전체 / 지정 고정 원자 유지</option>
+            </select></label
+          ><button data-action="optimize" class="primary wide">
+            초기 구조 최적화</button
+          ><button data-action="cleanup" class="wide">겹침 줄이기</button>
+          <p class="hint">
+            MMFF/UFF는 초기 구조 정리용입니다. 금속 코어의 정확한 에너지 평가는
+            DFT가 필요합니다.
+          </p>
+          <div class="section-title">
+            <span>02</span>
+            <h2>검사 / 기하</h2>
+          </div>
+          <button data-action="bonds" class="wide">결합 정보 검사 / 편집</button
+          ><button data-action="geometry" class="wide">
+            결합길이 · 각도 · 이면각</button
+          ><button data-action="resonance" class="wide">
+            공명식 / 방향족성</button
+          ><button data-action="contactSettings" class="wide">
+            비결합 접촉 기준</button
+          ><label
+            >전체 R 자리 Sn–C 길이 (Å)
+            <div class="inline">
+              <input
+                id="snc"
+                type="number"
+                value="2.15"
+                min="1.8"
+                max="2.8"
+                step="0.01"
+              /><button data-action="snc">적용</button>
+            </div></label
+          >
+        </section>
+      </aside>
+      <section class="center">
+        <div class="viewer-panel panel">
+          <div class="view-toolbar">
+            <div class="segmented" id="selectionMode">
+              <button data-mode="single">단일</button
+              ><button data-mode="multi" class="active">다중</button
+              ><button data-mode="box">사각형</button>
+            </div>
+            <div class="toolbar-spacer"></div>
+            <button data-action="selectSn">모든 Sn</button
+            ><button data-action="selectAll">전체</button
+            ><button data-action="deselect">해제</button
+            ><button data-action="fit" title="전체 구조 맞춤">⊞ 맞춤</button>
+          </div>
+          <div class="view-options">
+            <label><input type="checkbox" id="showH" checked /> H 표시</label
+            ><label><input type="checkbox" id="showLabels" /> 원자명</label
+            ><label><input type="checkbox" id="coreOnly" /> 코어만</label>
+            <div class="toolbar-spacer"></div>
+            <button data-action="undo" id="undo">↶ 실행 취소</button
+            ><button data-action="redo" id="redo">↷ 복원</button>
+          </div>
+          <div id="viewport">
+            <canvas
+              id="molecule"
+              aria-label="회전 및 원자 선택이 가능한 3D 분자 구조"
+            ></canvas
+            ><canvas id="overlay"></canvas>
+            <div class="view-head">
+              <span class="eyebrow">CURRENT STRUCTURE</span>
+              <h1 id="structureTitle">Sn12 oxo cluster</h1>
+              <p id="viewMetrics"></p>
+            </div>
+            <div class="view-foot">
+              <span
+                >드래그: 회전　·　휠: 확대　·　우클릭: 이동　·　Shift: 추가
+                선택</span
+              ><span id="rendererBadge">BROWSER RENDERER</span>
+            </div>
+            <div id="boxSelect"></div>
+          </div>
+          <div class="metrics-bar">
+            <div><span>FORMULA</span><strong id="formula"></strong></div>
+            <div><span>ATOMS</span><strong id="atomCount"></strong></div>
+            <div><span>BONDS</span><strong id="bondCount"></strong></div>
+            <div>
+              <span>SELECTED</span><strong id="selectedCount">0</strong>
+            </div>
+            <div><span>CHARGE</span><strong id="totalCharge"></strong></div>
+          </div>
+        </div>
+        <section class="output-panel panel">
+          <nav class="tabs">
+            <button data-output="coordinates" class="active">XYZ 좌표</button
+            ><button data-output="log">작업 기록</button
+            ><span class="toolbar-spacer"></span
+            ><button data-action="copy" class="text-button">복사 ↗</button>
+          </nav>
+          <pre id="coordinates"></pre>
+          <pre id="log" class="hidden"></pre>
+        </section>
+      </section>
+      <aside class="right panel">
+        <nav class="tabs">
+          <button data-right="selection" class="active">선택</button
+          ><button data-right="slotList">결합 자리</button
+          ><button data-right="contacts">접촉</button>
+        </nav>
+        <section id="selection" class="right-content">
+          <div class="section-row">
+            <h2>선택 원자</h2>
+            <span id="selectionBadge" class="count">0</span>
+          </div>
+          <div id="atomList" class="table-scroll selection-table"></div>
+          <div class="two-buttons">
+            <button data-action="selectH">연결 H까지</button
+            ><button data-action="selectLigand">리간드 전체</button>
+          </div>
+          <h3>원자 좌표 · 형식전하 편집</h3>
+          <form id="atomForm">
+            <label>원소<input name="element" list="elements" /></label
+            ><datalist id="elements"></datalist>
+            <div class="three-fields">
+              <label>x<input name="x" type="number" step="any" /></label
+              ><label>y<input name="y" type="number" step="any" /></label
+              ><label>z<input name="z" type="number" step="any" /></label>
+            </div>
+            <div class="two-fields">
+              <label>charge<input name="charge" type="number" /></label
+              ><label
+                >isotope<input name="isotope" type="number" min="0"
+              /></label>
+            </div>
+            <button type="submit" class="wide">한 원자 편집 적용</button>
+          </form>
+          <button data-action="fixed" class="wide">
+            선택 원자 고정 / 해제
+          </button>
+          <div class="inline">
+            <input
+              type="color"
+              id="selectedColor"
+              value="#09bfd6"
+              aria-label="선택 원자 색상"
+            /><button data-action="atomColor" class="grow">
+              선택 원자 색상 적용
+            </button>
+          </div>
+          <button data-action="delete" class="danger wide">
+            선택 원자 삭제
+          </button>
+          <p class="hint">원자 ID 순서는 거리·각도 측정에도 사용됩니다.</p>
+        </section>
+        <section id="slotList" class="right-content hidden">
+          <div id="slotsTable" class="table-scroll"></div>
+          <button data-action="slots" class="wide">전체 자리 편집</button>
+        </section>
+        <section id="contacts" class="right-content hidden">
+          <p class="hint">접촉은 결합이나 안정성을 확정하는 지표가 아닙니다.</p>
+          <button data-action="refreshContacts" class="wide">
+            접촉 다시 검사</button
+          ><button data-action="contactSettings" class="wide">기준 조절</button>
+          <div id="contactsTable" class="table-scroll"></div>
+        </section>
+      </aside>
+    </main>
+    <footer>
+      <span id="status"><i></i> 준비됨</span><span id="jobStatus"></span
+      ><button data-action="cancel" id="cancelJob" class="hidden">
+        작업 취소</button
+      ><span class="footer-note">Python chemistry · Browser workspace</span>
+    </footer>
+    <input
+      type="file"
+      id="fileInput"
+      hidden
+      accept=".json,.tinoxo,.html,.htm,.xyz,.mol,.sdf,.mol2,.pdb,.cif,.gro,.pqr"
+    />
+    <dialog id="modal">
+      <div class="modal-header">
+        <div>
+          <span class="eyebrow">TIN OXO STUDIO</span>
+          <h2 id="modalTitle"></h2>
+        </div>
+        <button data-close="modal" aria-label="닫기">✕</button>
+      </div>
+      <div id="modalBody"></div>
+    </dialog>
+    <dialog id="picker">
+      <div class="modal-header">
+        <div>
+          <span class="eyebrow">ATTACHMENT ATOM</span>
+          <h2>리간드 결합 원자 선택</h2>
+        </div>
+        <button data-close="picker">✕</button>
+      </div>
+      <div id="pickerBody"></div>
+    </dialog>
+    <div id="toast" role="status"></div>
+  </body>
+</html>

@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Tin Oxo Studio 4.0 — native Tk/X11 molecular editor.
+"""Tin Oxo Studio 4.1 — local browser workspace and optional native editor.
 Run: python TinOxoStudio.py
-Dependencies: Python >=3.10, tkinter, numpy, scipy, rdkit, ase, Pillow.
-No browser, network access, OpenGL, or Gaussian executable is needed for editing.
+Dependencies: Python >=3.10, numpy, scipy, rdkit, ase, Pillow.
+Web mode uses a browser. Optional --native uses Tk; neither mode needs Gaussian.
+The browser workspace runs offline against the local Python server.
 Coordinate provenance and external reference URLs are embedded in the program.
 """
 from __future__ import annotations
@@ -18,7 +19,7 @@ try:
     from rdkit.Chem import AllChem, rdDetermineBonds, rdMolDescriptors
     from rdkit.Geometry import Point3D
 except ImportError as exc:
-    raise SystemExit("RDKit이 필요합니다. conda install -c conda-forge rdkit numpy scipy ase pillow tk") from exc
+    raise SystemExit("RDKit이 필요합니다. conda install -c conda-forge rdkit numpy scipy ase pillow") from exc
 try:
     from ase import Atoms
     from ase.data import chemical_symbols, atomic_numbers, covalent_radii
@@ -27,7 +28,7 @@ try:
 except ImportError as exc:
     raise SystemExit("ASE가 필요합니다. python -m pip install ase") from exc
 from PIL import Image, ImageDraw, ImageFont
-VERSION = "4.0.0"
+VERSION = "4.1.0"
 PT = Chem.GetPeriodicTable()
 SYMBOLS = chemical_symbols[1:119]
 METALS = set(SYMBOLS) - set("H He B C N O F Ne Si P S Cl Ar Ge As Se Br Kr Sb Te I Xe At Rn Ts Og".split())
@@ -797,7 +798,7 @@ def portable_html(p,bank,settings):
     b.setdefault('trash',[]);b.setdefault('updatedAt',datetime.now().isoformat());b.setdefault('id',uuid.uuid4().hex)
     # Existing browser editor understands the common atom/bond/project fields.
     text=inject(text,'initialProject',p);text=inject(text,'structureLibrary',b)
-    notice='<div style="background:#153b4a;color:white;padding:8px">Python 4.0 project snapshot · 이 HTML은 기존 웹 편집기입니다. 새 최적화/검사/Gaussian 기능은 TinOxoStudio.py에서 실행하세요.</div>'
+    notice='<div style="background:#153b4a;color:white;padding:8px">Python 4.1 project snapshot · 이 HTML은 기존 웹 편집기입니다. 새 최적화/검사/Gaussian 기능은 TinOxoStudio.py에서 실행하세요.</div>'
     text=text.replace('<body>','<body>'+notice,1)
     raw=json.dumps(settings,ensure_ascii=False).replace('<','\\u003c')
     return text.replace('</body>',f'<script id="nativeSettings" type="application/json">{raw}</script></body>')
@@ -1453,7 +1454,7 @@ class MoleculeView:
 
 class NativeApp:
     def __init__(self,root,initial=None,config_dir=None,recover_prompt=True):
-        self.root=root;self.root.title('Tin Oxo Studio 4.0 · Python / X11')
+        self.root=root;self.root.title('Tin Oxo Studio 4.1 · Python / X11')
         self.root.geometry(f'{min(1540,root.winfo_screenwidth()-40)}x{min(980,root.winfo_screenheight()-60)}');self.root.minsize(1040,680)
         self.config_dir=Path(config_dir or os.environ.get('TINOXO_CONFIG_DIR',Path.home()/'.config'/'tinoxo-studio')).expanduser()
         self.config_path=self.config_dir/'settings.json';self.autosave_path=self.config_dir/'recovery.json'
@@ -1666,7 +1667,7 @@ class NativeApp:
         charge=self.project['metadata'].get('totalCharge');qs='미지정' if charge is None else str(charge)+' (사용자 확인)'
         self.metrics_var.set(f"{formula(self.project)}  ·  원자 {len(self.project['atoms'])}  ·  결합 {len(self.project['bonds'])}  ·  채운 자리 {sum(bool(s.get('smiles')) for s in self.project['slots'])}  ·  전하 {qs}")
         self.core_note.configure(text=self.project['metadata'].get('status','사용자 구조')+'\n'+self.project['metadata'].get('coordinateNote','좌표 단위 Å'))
-        self.root.title(('● ' if self.dirty else '')+'Tin Oxo Studio 4.0 — '+self.project['title'])
+        self.root.title(('● ' if self.dirty else '')+'Tin Oxo Studio 4.1 — '+self.project['title'])
         self.refresh_contacts();self.view.draw()
     def select(self,ids):
         a=index_atoms(self.project);self.selection=list(dict.fromkeys(i for i in ids if i in a))
@@ -2386,7 +2387,7 @@ class NativeApp:
         self.label(frame,'XYZ에는 결합 정보가 없고 PDB에는 결합차수가 없습니다. 전체 편집 정보를 보존하려면 프로젝트 JSON을 함께 저장하세요. HTML은 기존 웹 기능을 실행하며 새로운 Python 기능은 .py에서 실행합니다.','Muted.TLabel',600);self.apply_theme()
     def help_dialog(self):
         win=self.dialog('사용 안내 / 과학적 범위 / 출처','1000x780');frame=self.frame(win);frame.pack(fill='both',expand=True);text=self.textbox(frame,height=28)
-        guide='''Tin Oxo Studio 4.0 · Python/Tk/X11
+        guide='''Tin Oxo Studio 4.1 · Python/Tk/X11
 
 실행: python TinOxoStudio.py
 서버 Python에 Tk, RDKit, ASE, NumPy, SciPy, Pillow가 필요합니다.
@@ -2438,25 +2439,32 @@ VESTA는 원소별 색상 숫자만 참조했습니다. VESTA 실행파일은 �
 
 
 def main(argv=None):
-    parser=argparse.ArgumentParser(description='Tin Oxo Studio 4.0 — native Tk/X11 molecular editor')
+    parser=argparse.ArgumentParser(description='Tin Oxo Studio 4.1 — local browser workspace')
     parser.add_argument('project',nargs='?',help='project JSON, legacy HTML, XYZ, MOL/SDF, PDB, CIF')
     parser.add_argument('--check',action='store_true',help='check dependencies and core templates without DISPLAY')
     parser.add_argument('--export-core',choices=['3','6','12'],help='export bare core as XYZ without GUI')
     parser.add_argument('--output',help='output file for --export-core')
     parser.add_argument('--config-dir',help='settings/recovery directory')
+    parser.add_argument('--native',action='store_true',help='use the legacy Tk/X11 editor')
+    parser.add_argument('--port',type=int,help='web port (prompt when omitted; default 8765; 0 selects a free port)')
+    parser.add_argument('--host',default='127.0.0.1',help='bind address (default: 127.0.0.1)')
+    parser.add_argument('--no-browser',action='store_true',help='print the URL without opening a browser (HPC/SSH)')
+    parser.add_argument('--fresh',action='store_true',help='start with a bare Sn12 core instead of recovering the web workspace')
     args=parser.parse_args(argv)
     if args.check:
         import ase
         print(f'TinOxoStudio {VERSION} | Python {sys.version.split()[0]} | RDKit {rdBase.rdkitVersion} | ASE {ase.__version__}')
         for n in (3,6,12):
             p=template(n);print(f'Sn{n}: {len(p["atoms"])} atoms / {len(p["bonds"])} bonds / {formula(p)}')
-        import tkinter
-        print('Tkinter available; graphical launch additionally requires working X11 DISPLAY.');return 0
+        print('Browser UI: Python HTTP server; Tk / DISPLAY / Node.js are not required.');return 0
     if args.export_core:
         text=export_xyz(template(int(args.export_core)))
         if args.output:atomic_write(args.output,text)
         else:print(text,end='')
         return 0
+    if not args.native:
+        from TinOxoWeb import run
+        return run(args)
     import_tk()
     try:root=tk.Tk();root.tk.call('encoding','system','utf-8')
     except tk.TclError as exc:

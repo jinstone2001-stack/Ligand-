@@ -1,4 +1,16 @@
-# Validation — version 4.0.0, 2026-11-06
+# Validation — version 4.1.0, 2026-11-06
+
+- Full Python suite: **100 passing tests** on Python 3.13.5 / Tk 8.6 / RDKit 2026.09.1 / ASE 3.29.0 with a local X11 display for the optional legacy GUI. This comprises 72 existing regressions and 28 new HTTP/workspace/launcher tests. The browser server itself starts with DISPLAY unset and does not initialize Tk.
+- New tests cover port prompting/default/explicit/automatic selection, occupied-port errors, browser opening with the actual bound port and token, and a real command-line subprocess serving the API without DISPLAY.
+- HTTP/workspace checks cover authenticated state/config, static UI and fonts, traversal rejection, Origin enforcement, malformed requests, revision conflicts, failed-edit rollback, failed-persistence rollback, atomic recovery, project upload/download including CP949, invalid bundle rejection, explicit server-path saving, bank/favorites/settings, and history.
+- Real RDKit/ASE checks exercise SVG atom indices, a non-first N attached to two hosts, slot edits and Sn–C adjustment, example/optimization jobs, cancellation, unchanged state after invalid tasks, bond/contact/measurement/resonance requests, and Gaussian default/mixed/custom GenECP output.
+- **19 DOM integration scenarios** pass using jsdom 26 and the real Python HTTP API. They cover initial connection, token storage, core reset, selection, fixed camera scale, SVG atom picking through RDKit attachment, undo/redo, shared Gaussian settings and download, theme/font preview, library/favorites, bank, geometry CSV, bond editing, resonance, contacts, clipboard/project download, upload/XSS-safe titles, and synchronous form navigation prevention.
+- The DOM suite mocks Canvas; it does not establish actual GPU correctness or browser appearance. The provided browser runtime was unavailable, so **real-browser visual and WebGL verification are not completed**. The local API and DOM checks must not be described as browser screenshot QA. No user HPC/SSH session, Windows browser opener, or Gaussian executable was available for end-to-end testing.
+- JavaScript syntax checks pass. Runtime has no Node/npm, external CDN, browser-side RDKit or web-framework dependency; jsdom is used only for development tests. Existing font files and notices are preserved.
+
+Run the server with `python TinOxoStudio.py --port 8888` and use the printed full URL. For the optional DOM tests, install jsdom 26 as a development-only dependency and provide an isolated test server via TINOXO_TEST_URL / TINOXO_TEST_TOKEN; see tests/test_frontend.mjs. Do not run mutating tests against a real user workspace.
+
+## Earlier 4.0 validation record
 
 - Python 3.13.5 / Tk 8.6 / RDKit 2026.09.1 / ASE 3.29.0, local Xorg X11 at 1364×1024: **72 tests passed**, comprising 56 headless-compatible and 16 GUI checks. The same suite is run from an extracted 4.0 source package before publication. GitHub publishes the final branch as a source ZIP, retaining the same program, fonts, examples and tests.
 - New chemistry checks verify attachment through non-first C, N and O atoms; retained N–H bonds for coordination; replacement of one O–H for covalent attachment; capping the old dummy position when the anchor moves; aromatic bond and stereochemical graph preservation; rejected invalid/dummy/saturated anchors; explicit bridge donor ordering and group selection; and project round-trip, same-ligand re-edit and clearing of the stored index.
