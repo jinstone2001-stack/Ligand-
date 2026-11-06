@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Tin Oxo Studio 3.1 — native Tk/X11 molecular editor.
+"""Tin Oxo Studio 4.0 — native Tk/X11 molecular editor.
 Run: python TinOxoStudio.py
 Dependencies: Python >=3.10, tkinter, numpy, scipy, rdkit, ase, Pillow.
 No browser, network access, OpenGL, or Gaussian executable is needed for editing.
@@ -27,7 +27,7 @@ try:
 except ImportError as exc:
     raise SystemExit("ASE가 필요합니다. python -m pip install ase") from exc
 from PIL import Image, ImageDraw, ImageFont
-VERSION = "3.1.0"
+VERSION = "4.0.0"
 PT = Chem.GetPeriodicTable()
 SYMBOLS = chemical_symbols[1:119]
 METALS = set(SYMBOLS) - set("H He B C N O F Ne Si P S Cl Ar Ge As Se Br Kr Sb Te I Xe At Rn Ts Og".split())
@@ -148,7 +148,7 @@ def delete_atoms(p,ids):
         if not set(s.get('sn',[]))<=alive: continue
         s['ligandIds']=[i for i in s.get('ligandIds',[]) if i in alive]
         if s.get('smiles') and not s['ligandIds']:
-            for k in ('smiles','anchor','donorIds','centerAtom','fragmentCharge'):s.pop(k,None)
+            for k in ('smiles','anchor','donorIds','centerAtom','fragmentCharge','attachmentIndex'):s.pop(k,None)
             if s.get('custom'):continue
         slots.append(s)
     p['slots']=slots
@@ -167,7 +167,7 @@ def clear_slot(p,slot_id):
     p['slots']=[s for s in p['slots'] if s['id'] not in groups or not s.get('custom')]
     for s in p['slots']:
         if s['id']==slot_id:
-            for k in ('smiles','ligandIds','anchor','donorIds','centerAtom','fragmentCharge','resonance'):
+            for k in ('smiles','ligandIds','anchor','donorIds','centerAtom','fragmentCharge','resonance','attachmentIndex'):
                 s.pop(k,None)
 
 def excluded_pairs(p):
@@ -336,22 +336,57 @@ def axis_rotation(axis,angle):
     x,y,z=unit(axis);k=np.array([[0,-z,y],[z,0,-x],[-y,x,0]])
     return np.eye(3)+math.sin(angle)*k+(1-math.cos(angle))*(k@k)
 
-def build_fragment(smiles,kind='A',mode='covalent',ff_choice='MMFF94',conformers=6,cancel=None):
+def ligand_attachment_info(smiles,kind='A',mode='covalent'):
+    """Indices always refer to the original RDKit SMILES graph, before AddHs.
+
+    Keep this graph unchanged between the 2D picker and 3D construction so
+    branching, atom maps and stereochemistry cannot silently move the anchor.
+    """
     mol=Chem.MolFromSmiles(smiles.strip())
     if mol is None:raise ValueError('RDKit이 SMILES를 해석하지 못했습니다. 전하·괄호·결합차수를 확인하세요.')
     if len(Chem.GetMolFrags(mol))!=1:raise ValueError('한 입력줄에는 연결된 리간드 한 개만 입력하세요. 반대이온은 별도 성분으로 추가할 수 있습니다.')
     if any(a.GetSymbol() in METALS for a in mol.GetAtoms()):raise ValueError('리간드 생성은 유기/비금속 조각을 대상으로 합니다. 금속 포함 구조는 MOL/SDF로 불러오세요.')
+    if mol.GetNumAtoms()>800:raise ValueError('리간드는 H 포함 800원자까지 생성합니다.')
     stars=[a.GetIdx() for a in mol.GetAtoms() if a.GetAtomicNum()==0]
-    cap=None;donors=[];center=None
+    groups=[]
     if kind in ('L','P'):
         if stars:raise ValueError('가교 L/P 자리는 * 없이 카복실레이트/포스피네이트 전체를 입력하세요.')
-        elem='C' if kind=='L' else 'P';candidates=[]
         for a in mol.GetAtoms():
             oxy=[n for n in a.GetNeighbors() if n.GetSymbol()=='O']
-            if a.GetSymbol()==elem and len(oxy)==2 and any(mol.GetBondBetweenAtoms(a.GetIdx(),n.GetIdx()).GetBondTypeAsDouble()>=2 for n in oxy):
-                candidates.append((a.GetIdx(),[n.GetIdx() for n in oxy]))
-        if len(candidates)!=1:raise ValueError('C(=O)[O-] 또는 P(=O)([O-])(R)R 연결부가 정확히 하나 필요합니다.')
-        center,donors=candidates[0];rw=Chem.RWMol(mol)
+            if a.GetSymbol()==('C' if kind=='L' else 'P') and len(oxy)==2 and any(mol.GetBondBetweenAtoms(a.GetIdx(),n.GetIdx()).GetBondTypeAsDouble()>=2 for n in oxy):
+                if all(all(n.GetIdx()==a.GetIdx() or n.GetAtomicNum()==1 for n in o.GetNeighbors()) for o in oxy):
+                    groups.append((a.GetIdx(),[n.GetIdx() for n in oxy]))
+        if not groups:raise ValueError('C(=O)[O-] 또는 P(=O)([O-])(R)R 연결부가 필요합니다.')
+        candidates=[i for _,oxy in groups for i in oxy];default=candidates[0]
+    else:
+        if len(stars)>1:raise ValueError('말단 [*:1] 하나만 사용하세요.')
+        if stars and mol.GetAtomWithIdx(stars[0]).GetDegree()!=1:raise ValueError('*는 연결점 하나를 가진 말단 원자여야 합니다.')
+        marked=mol.GetAtomWithIdx(stars[0]).GetNeighbors()[0].GetIdx() if stars else None
+        candidates=[a.GetIdx() for a in mol.GetAtoms() if a.GetAtomicNum()>1
+                    and (kind!='R' or a.GetSymbol()=='C')
+                    and (mode=='coordinate' or a.GetTotalNumHs()>0 or any(n.GetAtomicNum()==1 for n in a.GetNeighbors()) or a.GetIdx()==marked)]
+        default=marked if marked in candidates else (candidates[0] if candidates else None)
+    if not candidates:raise ValueError('이 방식으로 결합할 원자가 없습니다. 공유결합에는 치환할 H 또는 *가 필요합니다. 배위결합은 coordinate를 선택하세요.')
+    return {'mol':mol,'candidates':candidates,'default':default,'groups':groups,'stars':stars}
+
+
+def build_fragment(smiles,kind='A',mode='covalent',ff_choice='MMFF94',conformers=6,cancel=None,attachment_index=None):
+    info=ligand_attachment_info(smiles,kind,mode);mol=info['mol'];stars=info['stars']
+    # Legacy calls without a picker retain their first-atom / dummy behavior.
+    if attachment_index is None:
+        if kind in ('L','P'):
+            if len(info['groups'])!=1:raise ValueError('가교 연결부가 여러 개입니다. 팝업에서 donor O를 선택하세요.')
+            anchor=info['default']
+        else:anchor=mol.GetAtomWithIdx(stars[0]).GetNeighbors()[0].GetIdx() if stars else 0
+    else:
+        if isinstance(attachment_index,bool) or not isinstance(attachment_index,(int,np.integer)):raise ValueError('리간드 원자 번호는 정수여야 합니다.')
+        anchor=int(attachment_index)
+    if anchor not in info['candidates']:raise ValueError('선택한 원자는 이 결합 방식에 사용할 수 없습니다. 팝업에서 결합 원자를 다시 선택하세요.')
+    selected_index=anchor
+    cap=None;donors=[];center=None
+    if kind in ('L','P'):
+        center,oxy=next((c,ds) for c,ds in info['groups'] if anchor in ds)
+        donors=[anchor]+[i for i in oxy if i!=anchor];rw=Chem.RWMol(mol)
         for i in donors:
             o=rw.GetAtomWithIdx(i)
             if any(n.GetIdx()!=center for n in o.GetNeighbors()):raise ValueError('가교 donor O에 에스터/추가 치환기가 있습니다.')
@@ -359,13 +394,10 @@ def build_fragment(smiles,kind='A',mode='covalent',ff_choice='MMFF94',conformers
                 o.SetFormalCharge(-1);o.SetNumExplicitHs(0);o.SetNoImplicit(True)
         mol=rw.GetMol();Chem.SanitizeMol(mol);anchor=donors[0]
     else:
-        if len(stars)>1:raise ValueError('말단 [*:1] 하나만 사용하세요.')
         if stars:
-            dummy=mol.GetAtomWithIdx(stars[0])
-            if dummy.GetDegree()!=1:raise ValueError('*는 연결점 하나를 가진 말단 원자여야 합니다.')
-            anchor=dummy.GetNeighbors()[0].GetIdx();cap=stars[0]
-            rw=Chem.RWMol(mol);h=Chem.Atom(1);h.SetNoImplicit(True);rw.ReplaceAtom(cap,h);mol=rw.GetMol();Chem.SanitizeMol(mol)
-        else:anchor=0
+            marked=mol.GetAtomWithIdx(stars[0]).GetNeighbors()[0].GetIdx()
+            rw=Chem.RWMol(mol);h=Chem.Atom(1);h.SetNoImplicit(True);rw.ReplaceAtom(stars[0],h);mol=rw.GetMol();Chem.SanitizeMol(mol)
+            if anchor==marked and mode=='covalent':cap=stars[0]
         if kind=='R' and mol.GetAtomWithIdx(anchor).GetSymbol()!='C':raise ValueError('R 자리는 Sn–C 결합입니다. 탄소 연결점의 SMILES를 입력하세요.')
     res=resonance_info(mol)
     mol=Chem.AddHs(mol)
@@ -410,7 +442,7 @@ def build_fragment(smiles,kind='A',mode='covalent',ff_choice='MMFF94',conformers
         if ri:data['resonance']=ri
         bonds.append(data)
     return {'atoms':atoms,'bonds':bonds,'anchor':anchor,'center':center,'donors':donors,
-        'direction':direction,'resonance':res,'smiles':smiles,'energy':e,'status':status,
+        'direction':direction,'resonance':res,'smiles':smiles,'attachmentIndex':selected_index,'energy':e,'status':status,
         'charge':sum(a['charge'] for a in atoms),'conformers':len(ids),'ff':ff_choice,
         'resonanceRestraints':restraint_notes}
 
@@ -425,11 +457,12 @@ def outward_direction(p,parent):
     return unit(sum(ds,np.zeros(3)),unit(r-np.mean([xyz(v) for v in p['atoms']],axis=0)))
 
 def attach_fragment(p,smiles,parent=None,slot_id=None,mode='covalent',length=None,direction=None,
-                    replace_h=True,ff_choice='MMFF94',cleanup=True,cancel=None):
+                    replace_h=True,ff_choice='MMFF94',cleanup=True,cancel=None,attachment_index=None):
     slot=next((s for s in p['slots'] if s['id']==slot_id),None) if slot_id else None
     if slot_id and slot is None:raise ValueError('결합 자리가 없습니다.')
     if slot:
         kind=slot['kind'];parents=list(slot['sn']);slot_copy=clone(slot)
+        if attachment_index is None and smiles==slot.get('smiles'):attachment_index=slot.get('attachmentIndex')
         clear_slot(p,slot_id)
         slot=next((s for s in p['slots'] if s['id']==slot_id),None)
         if slot is None:slot=slot_copy;p['slots'].append(slot)
@@ -442,7 +475,7 @@ def attach_fragment(p,smiles,parent=None,slot_id=None,mode='covalent',length=Non
     a=index_atoms(p)
     if any(i not in a for i in parents):raise ValueError('부모 원자가 삭제되어 리간드를 부착할 수 없습니다.')
     if any(a[i]['element']=='H' for i in parents):raise ValueError('H에 결합을 덧붙일 수 없습니다. H를 치환할 부모 원자를 선택하세요.')
-    frag=build_fragment(smiles,kind,mode,ff_choice,conformers=4,cancel=cancel)
+    frag=build_fragment(smiles,kind,mode,ff_choice,conformers=4,cancel=cancel,attachment_index=attachment_index)
     if replace_h and kind=='A' and mode=='covalent' and a[parents[0]]['element'] not in METALS:
         hs=[i for i in adjacency(p)[parents[0]] if a[i]['element']=='H']
         if hs:delete_atoms(p,[hs[0]]);a=index_atoms(p)
@@ -490,6 +523,7 @@ def attach_fragment(p,smiles,parent=None,slot_id=None,mode='covalent',length=Non
         slot.update(bondLength=length,direction=best[2].tolist(),anchor=root,mode=mode)
     p['atoms'].extend(new_atoms);p['bonds'].extend(new_bonds)
     slot.update(smiles=smiles,ligandIds=[v['id'] for v in new_atoms],anchor=imap[frag['anchor']],
+        attachmentIndex=frag['attachmentIndex'],
         fragmentCharge=frag['charge'],resonance=frag['resonance'],resonanceRestraints=frag.get('resonanceRestraints',[]),
         geometryMethod='Single atom / no internal freedom' if len(frag['atoms'])==1 else f"RDKit ETKDGv3 + {ff_choice}"+(' + equivalent terminal-O restraints' if frag.get('resonanceRestraints') else ''))
     p['metadata']['requiresChargeReview']=True
@@ -763,7 +797,7 @@ def portable_html(p,bank,settings):
     b.setdefault('trash',[]);b.setdefault('updatedAt',datetime.now().isoformat());b.setdefault('id',uuid.uuid4().hex)
     # Existing browser editor understands the common atom/bond/project fields.
     text=inject(text,'initialProject',p);text=inject(text,'structureLibrary',b)
-    notice='<div style="background:#153b4a;color:white;padding:8px">Python 3.1 project snapshot · 이 HTML은 기존 웹 편집기입니다. 새 최적화/검사/Gaussian 기능은 TinOxoStudio.py에서 실행하세요.</div>'
+    notice='<div style="background:#153b4a;color:white;padding:8px">Python 4.0 project snapshot · 이 HTML은 기존 웹 편집기입니다. 새 최적화/검사/Gaussian 기능은 TinOxoStudio.py에서 실행하세요.</div>'
     text=text.replace('<body>','<body>'+notice,1)
     raw=json.dumps(settings,ensure_ascii=False).replace('<','\\u003c')
     return text.replace('</body>',f'<script id="nativeSettings" type="application/json">{raw}</script></body>')
@@ -907,6 +941,52 @@ FONT_ALIASES={'맑은고딕':('Malgun Gothic','맑은 고딕','맑은고딕'),
               '굴림':('Gulim','굴림'), 'Arial':('Arial',), 'Calibri':('Calibri',)}
 HANGUL_RE=re.compile(r'[\u1100-\u11ff\u3130-\u318f\uac00-\ud7af]+')
 FONT_REGISTRATION={'registered':[],'errors':[]}
+TEXT_RENDERING={'configured':False,'mode':'native','errors':[]}
+
+def configure_text_rendering():
+    """Configure this process before creating Tk; never change desktop settings."""
+    if TEXT_RENDERING['configured']:return TEXT_RENDERING
+    TEXT_RENDERING['configured']=True
+    try:
+        import ctypes,ctypes.util
+        if sys.platform=='win32':
+            # Prevent Windows from stretching a low-DPI bitmap of the whole UI.
+            user32=ctypes.windll.user32
+            try:
+                fn=user32.SetProcessDpiAwarenessContext;fn.argtypes=[ctypes.c_void_p];fn.restype=ctypes.c_bool
+                ok=fn(ctypes.c_void_p(-4)) # per-monitor V2
+            except AttributeError:ok=False
+            if not ok:
+                try:ctypes.windll.shcore.SetProcessDpiAwareness(2)
+                except (AttributeError,OSError):user32.SetProcessDPIAware()
+            TEXT_RENDERING['mode']='Windows per-monitor DPI / native text'
+        elif sys.platform.startswith('linux'):
+            lib=ctypes.CDLL(ctypes.util.find_library('fontconfig') or 'libfontconfig.so.1')
+            lib.FcInitLoadConfig.argtypes=[];lib.FcInitLoadConfig.restype=ctypes.c_void_p
+            lib.FcConfigParseAndLoadFromMemory.argtypes=[ctypes.c_void_p,ctypes.c_char_p,ctypes.c_int]
+            lib.FcConfigParseAndLoadFromMemory.restype=ctypes.c_int
+            lib.FcConfigBuildFonts.argtypes=[ctypes.c_void_p];lib.FcConfigBuildFonts.restype=ctypes.c_int
+            lib.FcConfigSetCurrent.argtypes=[ctypes.c_void_p];lib.FcConfigSetCurrent.restype=ctypes.c_int
+            lib.FcConfigDestroy.argtypes=[ctypes.c_void_p]
+            # Grayscale avoids colored subpixel fringes over remote X11. Outline
+            # glyphs with hinting avoid small embedded CJK bitmap strikes.
+            rule=b'''<?xml version="1.0"?><!DOCTYPE fontconfig SYSTEM "urn:fontconfig:fonts.dtd">
+<fontconfig><match target="font">
+<edit name="antialias" mode="assign"><bool>true</bool></edit>
+<edit name="hinting" mode="assign"><bool>true</bool></edit>
+<edit name="hintstyle" mode="assign"><const>hintfull</const></edit>
+<edit name="rgba" mode="assign"><const>none</const></edit>
+<edit name="embeddedbitmap" mode="assign"><bool>false</bool></edit>
+</match></fontconfig>'''
+            config=lib.FcInitLoadConfig()
+            if not config:raise OSError('Fontconfig configuration allocation failed')
+            try:
+                if not lib.FcConfigParseAndLoadFromMemory(config,rule,1) or not lib.FcConfigBuildFonts(config) or not lib.FcConfigSetCurrent(config):
+                    raise OSError('Fontconfig text configuration failed')
+            finally:lib.FcConfigDestroy(config)
+            TEXT_RENDERING['mode']='Xft / outline glyphs / grayscale antialias / full hinting'
+    except (OSError,AttributeError) as exc:TEXT_RENDERING['errors'].append(str(exc))
+    return TEXT_RENDERING
 
 def read_unicode_text(path):
     """UTF-8/BOM is canonical; migrate legacy Korean CP949 without replacement."""
@@ -1011,7 +1091,7 @@ class AppFonts:
         if sig==self.signature:return
         self.signature=sig
         specs={'ui':(resolved['korean'],size,'normal'),'heading':(resolved['korean'],size+2,'bold'),
-               'small':(resolved['korean'],9,'normal'),'english':(resolved['english'],size,'normal'),
+               'small':(resolved['korean'],max(10,size-1),'normal'),'english':(resolved['english'],size,'normal'),
                'english_bold':(resolved['english'],size,'bold')}
         for name,(family,point_size,weight) in specs.items():
             if family=='TkDefaultFont':family=tkfont.nametofont('TkDefaultFont').actual('family')
@@ -1193,10 +1273,87 @@ def scene_png(prims,width,height,bg,scale=2,font_family=None):
 
 def import_tk():
     global tk,ttk,filedialog,messagebox,simpledialog,colorchooser,tkfont
+    configure_text_rendering()
     import tkinter as tk
     from tkinter import ttk,filedialog,messagebox,simpledialog,colorchooser
     import tkinter.font as tkfont
     register_local_fonts()
+
+
+class LigandAtomDialog:
+    """Clickable high-resolution 2D graph with original SMILES atom indices."""
+    def __init__(self,app,parent,smiles,kind,mode,on_select,selected=None):
+        from PIL import ImageTk
+        self.ImageTk=ImageTk;self.app=app;self.smiles=smiles;self.kind=kind;self.mode=mode;self.on_select=on_select
+        self.info=ligand_attachment_info(smiles,kind,mode);self.selected=selected if selected in self.info['candidates'] else self.info['default']
+        self.points={};self.pending=None
+        self.win=app.dialog('리간드 결합 원자 선택','980x720');self.win.transient(parent);self.win.atom_picker=self
+        outer=app.frame(self.win);outer.pack(fill='both',expand=True)
+        app.label(outer,'구조의 원자를 클릭하거나 목록에서 선택한 뒤 확정하세요. 번호는 입력 SMILES의 원자 순서(1부터)입니다.','Status.TLabel',920)
+        app.label(outer,smiles,'Muted.TLabel',920)
+        content=ttk.Frame(outer);content.pack(fill='both',expand=True)
+        side=ttk.Frame(content,width=200);side.pack(side='right',fill='y',padx=(10,0))
+        self.tree=app.tree(side,['atom','charge'],['결합 원자','전하'],height=12)
+        self.tree.column('atom',width=110,minwidth=100);self.tree.column('charge',width=65,minwidth=55)
+        for i in self.info['candidates']:
+            atom=self.info['mol'].GetAtomWithIdx(i);self.tree.insert('','end',iid=str(i),values=(f'{atom.GetSymbol()}{i+1}',atom.GetFormalCharge()))
+        self.canvas=tk.Canvas(content,background='#ffffff',highlightthickness=0,width=620,height=380)
+        self.canvas.pack(side='left',fill='both',expand=True)
+        self.status=tk.StringVar();ttk.Label(outer,textvariable=self.status,style='Status.TLabel',wraplength=920).pack(fill='x',pady=6)
+        note=('선택 O → 첫 번째 Sn, 같은 연결부의 다른 O → 두 번째 Sn. 두 O를 함께 가교 결합합니다.' if kind in ('L','P') else
+              'coordinate: 선택 원자의 H를 유지하여 배위결합합니다.' if mode=='coordinate' else
+              'covalent: 선택 원자의 H 하나를 결합으로 치환합니다. 기존 *와 다른 원자를 고르면 기존 * 자리는 H로 막습니다.')
+        app.label(outer,note,'Muted.TLabel',920)
+        row=ttk.Frame(outer);row.pack(fill='x',pady=5)
+        ttk.Button(row,text='결합 원자 확정',style='Accent.TButton',command=app.call(self.confirm)).pack(side='right',padx=5)
+        ttk.Button(row,text='취소',command=self.win.destroy).pack(side='right')
+        self.canvas.bind('<Configure>',self.schedule_draw);self.canvas.bind('<Button-1>',self.click)
+        self.tree.bind('<<TreeviewSelect>>',self.from_tree);self.win.bind('<Destroy>',self.destroy,add='+')
+        self.win.protocol('WM_DELETE_WINDOW',self.win.destroy);self.win.bind('<Escape>',lambda e:self.win.destroy())
+        self.choose(self.selected);app.apply_theme();self.win.grab_set();self.schedule_draw()
+    def choose(self,index):
+        if index not in self.info['candidates']:
+            self.status.set('이 원자는 현재 결합 방식으로 사용할 수 없습니다. 목록의 원자를 선택하세요.');return
+        self.selected=index;atom=self.info['mol'].GetAtomWithIdx(index)
+        self.status.set(f"결합 원자: {atom.GetSymbol()}{index+1} · {self.mode}"+(' · O 두 점 가교' if self.kind in ('L','P') else ''))
+        if self.tree.selection()!=(str(index),):self.tree.selection_set(str(index));self.tree.see(str(index))
+        self.schedule_draw()
+    def from_tree(self,event=None):
+        if self.tree.selection():self.choose(int(self.tree.selection()[0]))
+    def click(self,event):
+        if not self.points:return
+        index,distance=min(((i,math.hypot(event.x-x,event.y-y)) for i,(x,y) in self.points.items()),key=lambda v:v[1])
+        if distance<=24:self.choose(index)
+    def schedule_draw(self,event=None):
+        if self.pending is not None:self.win.after_cancel(self.pending)
+        self.pending=self.win.after(50,lambda:self.app.safe(self.draw))
+    def draw(self):
+        from rdkit.Chem.Draw import rdMolDraw2D
+        self.pending=None
+        if not self.win.winfo_exists():return
+        width=max(180,self.canvas.winfo_width());height=max(160,self.canvas.winfo_height());scale=2
+        mol=Chem.Mol(self.info['mol']);AllChem.Compute2DCoords(mol)
+        for atom in mol.GetAtoms():atom.SetProp('atomNote',str(atom.GetIdx()+1))
+        drawer=rdMolDraw2D.MolDraw2DCairo(width*scale,height*scale);opts=drawer.drawOptions()
+        opts.baseFontSize=.7;opts.annotationFontScale=.7;opts.padding=.12
+        highlights=[self.selected]
+        if self.kind in ('L','P'):
+            highlights=next(ds for _,ds in self.info['groups'] if self.selected in ds)
+        colors={i:((.20,.85,.95) if i==self.selected else (.75,.90,.65)) for i in highlights}
+        drawer.DrawMolecule(mol,highlightAtoms=highlights,highlightAtomColors=colors)
+        self.points={i:(drawer.GetDrawCoords(i).x/scale,drawer.GetDrawCoords(i).y/scale) for i in range(mol.GetNumAtoms())}
+        drawer.FinishDrawing();im=Image.open(io.BytesIO(drawer.GetDrawingText())).convert('RGB')
+        self.image=self.ImageTk.PhotoImage(im.resize((width,height),Image.Resampling.LANCZOS),master=self.win)
+        self.canvas.delete('all');self.canvas.create_image(0,0,image=self.image,anchor='nw')
+    def confirm(self):
+        index=self.selected
+        if index not in self.info['candidates']:raise ValueError('결합 원자를 선택하세요.')
+        self.win.destroy();self.on_select(index)
+    def destroy(self,event):
+        if event.widget is self.win and self.pending is not None:
+            try:self.win.after_cancel(self.pending)
+            except tk.TclError:pass
+            self.pending=None
 
 
 class MoleculeView:
@@ -1296,7 +1453,7 @@ class MoleculeView:
 
 class NativeApp:
     def __init__(self,root,initial=None,config_dir=None,recover_prompt=True):
-        self.root=root;self.root.title('Tin Oxo Studio 3.1 · Python / X11')
+        self.root=root;self.root.title('Tin Oxo Studio 4.0 · Python / X11')
         self.root.geometry(f'{min(1540,root.winfo_screenwidth()-40)}x{min(980,root.winfo_screenheight()-60)}');self.root.minsize(1040,680)
         self.config_dir=Path(config_dir or os.environ.get('TINOXO_CONFIG_DIR',Path.home()/'.config'/'tinoxo-studio')).expanduser()
         self.config_path=self.config_dir/'settings.json';self.autosave_path=self.config_dir/'recovery.json'
@@ -1366,7 +1523,7 @@ class NativeApp:
         self.button(lf,'선택 원자에 리간드 붙이기',self.attach_dialog,'Accent.TButton')
         self.button(lf,'범용 리간드 / 내 SMILES',self.library_dialog)
         self.button(lf,'R / L / P 자리 편집',self.slots_dialog)
-        self.label(lf,'공유결합: [*:1]C 처럼 연결점 지정\n배위결합: 첫 원자가 donor\nL/P 가교: O donor 2점으로 부착','Muted.TLabel')
+        self.label(lf,'리간드 구조 팝업에서 결합 원자 선택\n공유결합: 선택 원자의 H 치환\n배위결합: 선택 원자가 donor\nL/P 가교: O donor 2점으로 부착','Muted.TLabel')
         self.label(lf,'03  구조 저장','Heading.TLabel');self.button(lf,'이름별 구조 보관함',self.bank_dialog)
         self.button(lf,'프로젝트 저장',self.save);self.button(lf,'XYZ 복사',self.copy_xyz)
         self.label(calc,'초기 구조 최적화','Heading.TLabel');self.label(calc,'힘장')
@@ -1466,7 +1623,8 @@ class NativeApp:
         for s in ('TEntry','TCombobox','TSpinbox'):
             self.style.configure(s,fieldbackground=p['entry'],foreground=colors.get('input',p['fg']),insertcolor=p['fg'],selectbackground='#08778c')
             self.style.map(s,fieldbackground=[('readonly',p['entry'])],foreground=[('readonly',colors.get('input',p['fg']))])
-        self.style.configure('Treeview',background=p['entry'],fieldbackground=p['entry'],foreground=p['fg'],rowheight=int(self.settings['font_size']*2.3),borderwidth=0)
+        row_height=max(int(self.settings['font_size']*2.3),self.fonts.named['ui'].metrics('linespace')+8)
+        self.style.configure('Treeview',background=p['entry'],fieldbackground=p['entry'],foreground=p['fg'],rowheight=row_height,borderwidth=0)
         self.style.map('Treeview',background=[('selected','#075c7c')],foreground=[('selected','#ffffff')])
         self.style.configure('Treeview.Heading',background=p['panel'],foreground=p['muted'],font=self.fonts.named['heading'])
         self.style.map('TNotebook.Tab',background=[('selected',p['entry'])],foreground=[('selected',p['accent'])])
@@ -1508,7 +1666,7 @@ class NativeApp:
         charge=self.project['metadata'].get('totalCharge');qs='미지정' if charge is None else str(charge)+' (사용자 확인)'
         self.metrics_var.set(f"{formula(self.project)}  ·  원자 {len(self.project['atoms'])}  ·  결합 {len(self.project['bonds'])}  ·  채운 자리 {sum(bool(s.get('smiles')) for s in self.project['slots'])}  ·  전하 {qs}")
         self.core_note.configure(text=self.project['metadata'].get('status','사용자 구조')+'\n'+self.project['metadata'].get('coordinateNote','좌표 단위 Å'))
-        self.root.title(('● ' if self.dirty else '')+'Tin Oxo Studio 3.1 — '+self.project['title'])
+        self.root.title(('● ' if self.dirty else '')+'Tin Oxo Studio 4.0 — '+self.project['title'])
         self.refresh_contacts();self.view.draw()
     def select(self,ids):
         a=index_atoms(self.project);self.selection=list(dict.fromkeys(i for i in ids if i in a))
@@ -1723,7 +1881,7 @@ class NativeApp:
                 win.destroy();self.attach_dialog(preset=(s,mode.get()))
         row=ttk.Frame(frame);row.pack(fill='x',pady=8)
         for text,fn in [('선택 사용',use),('내 SMILES로 추가 / 갱신',favorite),('내 SMILES 삭제',remove),('닫기',win.destroy)]:ttk.Button(row,text=text,command=self.call(fn)).pack(side='left',padx=4)
-        self.label(frame,'[*:1] = 공유결합 연결점. 배위결합은 첫 원자가 donor입니다. L/P 가교 리간드는 해당 결합 자리에서 선택하세요.','Muted.TLabel',850)
+        self.label(frame,'리간드를 선택하면 구조 팝업에서 결합 원자를 고릅니다. L/P 가교 리간드는 해당 결합 자리에서 선택하세요.','Muted.TLabel',850)
         tree.bind('<<TreeviewSelect>>',chosen);tree.bind('<Double-1>',lambda e:self.safe(use));search.trace_add('write',refill);refill();self.apply_theme()
     def attach_dialog(self,slot_id=None,preset=None):
         if self.busy:raise ValueError('진행 중인 작업을 먼저 마치세요.')
@@ -1747,28 +1905,56 @@ class NativeApp:
             widget=ttk.Combobox(grid,textvariable=values[key],values=options[key],state='readonly',width=width) if key in options else ttk.Entry(grid,textvariable=values[key],width=width)
             widget.grid(row=1,column=k,sticky='ew',padx=3,pady=4)
         grid.columnconfigure(1,weight=1)
-        def receive(s,m):values['smiles'].set(s);values['mode'].set('coordinate' if m=='bridge' else m)
-        ttk.Button(frame,text='범용 리간드 / 내 SMILES에서 선택',command=lambda:self.library_dialog(receive)).pack(anchor='w',pady=5)
-        plans=[];tree=self.tree(frame,['target','smiles','mode','length','direction'],['대상','SMILES','방식','길이 Å','방향'],height=10)
+        picked={'key':None,'index':None};anchor_label=tk.StringVar(value='결합 원자: 선택 필요')
+        def choose_attachment(after=None):
+            s=values['smiles'].get().strip();m=values['mode'].get();key=(s,m)
+            if not s:raise ValueError('리간드 SMILES를 입력하거나 라이브러리에서 선택하세요.')
+            previous=picked['index'] if picked['key']==key else slot.get('attachmentIndex') if slot and s==slot.get('smiles') else None
+            def selected(index):
+                if not win.winfo_exists():return
+                picked.update(key=key,index=index)
+                atom=Chem.MolFromSmiles(s).GetAtomWithIdx(index)
+                anchor_label.set(f'결합 원자: {atom.GetSymbol()}{index+1}')
+                if after:after(index)
+            return LigandAtomDialog(self,win,s,slot['kind'] if slot else 'A',m,selected,previous)
+        def receive(s,m):
+            values['smiles'].set(s);values['mode'].set('coordinate' if m=='bridge' else m)
+            win.after_idle(lambda:self.safe(choose_attachment) if win.winfo_exists() else None)
+        controls=ttk.Frame(frame);controls.pack(fill='x',pady=5)
+        ttk.Button(controls,text='범용 리간드 / 내 SMILES에서 선택',command=lambda:self.library_dialog(receive)).pack(side='left',padx=3)
+        ttk.Button(controls,text='결합 원자 선택…',command=self.call(choose_attachment)).pack(side='left',padx=5)
+        ttk.Label(controls,textvariable=anchor_label,style='Status.TLabel').pack(side='left',padx=8)
+        def invalidate(*_):
+            if picked['key']!=(values['smiles'].get().strip(),values['mode'].get()):anchor_label.set('결합 원자: 선택 필요')
+        for key in ('smiles','mode'):values[key].trace_add('write',invalidate)
+        plans=[];tree=self.tree(frame,['target','smiles','atom','mode','length','direction'],['대상','SMILES','결합 원자','방식','길이 Å','방향'],height=10)
         def refill():
             tree.delete(*tree.get_children())
-            for i,r in enumerate(plans):tree.insert('','end',iid=str(i),values=tuple(r[k] for k in ('target','smiles','mode','length','direction')))
-        def add_plan():
+            for i,r in enumerate(plans):
+                label='—' if r['attachment_index'] is None else Chem.MolFromSmiles(r['smiles']).GetAtomWithIdx(r['attachment_index']).GetSymbol()+str(r['attachment_index']+1)
+                tree.insert('','end',iid=str(i),values=(r['target'],r['smiles'],label,r['mode'],r['length'],r['direction']))
+        def add_plan(then=None):
             s=values['smiles'].get().strip()
             if not s and not slot_id:raise ValueError('SMILES를 입력하세요.')
             if s and Chem.MolFromSmiles(s) is None:raise ValueError('RDKit SMILES 해석 실패')
             r={k:v.get().strip() for k,v in values.items()}
             if r['length'] and not .5<=float(r['length'])<=4:raise ValueError('길이는 0.50–4.00 Å 범위입니다.')
-            if slot_id:plans.clear()
-            plans.append(r);refill()
+            def finish(index):
+                r['attachment_index']=index
+                if slot_id:plans.clear()
+                plans.append(r);refill()
+                if then:then()
+            if not s:finish(None)
+            elif picked['key']==(s,r['mode']):finish(picked['index'])
+            else:choose_attachment(finish)
         def remove_plan():
             ids={int(i) for i in tree.selection()};plans[:]=[r for i,r in enumerate(plans) if i not in ids];refill()
         row=ttk.Frame(frame);row.pack(fill='x')
         ttk.Button(row,text='입력을 계획에 추가',command=self.call(add_plan)).pack(side='left',padx=4);ttk.Button(row,text='선택 계획 삭제',command=remove_plan).pack(side='left',padx=4)
         replace_h=tk.BooleanVar(value=True);ttk.Checkbutton(frame,text='공유결합 부착 시 비금속 부모의 H 하나 치환',variable=replace_h).pack(anchor='w',pady=8)
-        self.label(frame,'공유결합은 [*:1]C처럼 *를 지정하세요. 배위결합은 N/O의 H를 유지합니다. 같은 입력을 여러 원자에 적용하거나, 대상을 원자별로 골라 여러 줄 추가할 수 있습니다.','Muted.TLabel',1000)
+        self.label(frame,'팝업에서 선택한 원자로 결합합니다. coordinate는 리간드 H를 유지합니다. 한 번 선택한 리간드와 결합 원자를 여러 대상 원자에 함께 적용할 수 있습니다.','Muted.TLabel',1000)
         def apply():
-            if not plans:add_plan()
+            if not plans:add_plan(then=apply);return
             base=clone(self.project);rows=clone(plans);ff=self.ff_var.get();replace=replace_h.get();clean=self.cleanup_var.get()
             target_map={f"{a[i]['element']}{i}":i for i in hosts}
             def task(cancel,progress):
@@ -1778,16 +1964,17 @@ class NativeApp:
                     ds={'+X':[1,0,0],'-X':[-1,0,0],'+Y':[0,1,0],'-Y':[0,-1,0],'+Z':[0,0,1],'-Z':[0,0,-1]}
                     if slot_id:
                         attach_fragment(base,row['smiles'],slot_id=slot_id,mode=row['mode'],length=float(row['length']) if row['length'] else None,
-                            direction=ds.get(row['direction']),replace_h=replace,ff_choice=ff,cleanup=clean,cancel=cancel);count+=1
+                            direction=ds.get(row['direction']),replace_h=replace,ff_choice=ff,cleanup=clean,cancel=cancel,attachment_index=row['attachment_index']);count+=1
                     else:
                         for parent in ps:
                             progress(f'{parent}번 원자에 리간드 추가…')
                             attach_fragment(base,row['smiles'],parent=parent,mode=row['mode'],length=float(row['length']) if row['length'] else None,
-                                direction=ds.get(row['direction']),replace_h=replace,ff_choice=ff,cleanup=clean,cancel=cancel);count+=1
+                                direction=ds.get(row['direction']),replace_h=replace,ff_choice=ff,cleanup=clean,cancel=cancel,attachment_index=row['attachment_index']);count+=1
                 return base,f'리간드 {count}개 적용 · ETKDGv3 + {ff}'
             self.run_task('리간드 부착',task);win.destroy()
         row=ttk.Frame(frame);row.pack(fill='x',pady=8)
         ttk.Button(row,text='모두 적용',style='Accent.TButton',command=self.call(apply)).pack(side='right',padx=5);ttk.Button(row,text='닫기',command=win.destroy).pack(side='right');self.apply_theme()
+        if preset and initial:win.after_idle(lambda:self.safe(choose_attachment) if win.winfo_exists() else None)
     def slots_dialog(self):
         win=self.dialog('R / L / P / 추가 U 자리 편집','1050x680');frame=self.frame(win);frame.pack(fill='both',expand=True)
         tree=self.tree(frame,['id','kind','host','smiles'],['자리','종류','부모 원자','SMILES'],height=10)
@@ -1925,67 +2112,103 @@ class NativeApp:
         self.button(frame,'적용',apply,'Accent.TButton');self.button(frame,'기본값 복원',lambda:[vars[k].set(str(v)) for k,v in DEFAULTS['contact'].items()]);self.apply_theme()
     def gaussian_dialog(self):
         win=self.dialog('Gaussian 16 입력 생성 · HPC 파일 저장','1180x850');outer=self.frame(win);outer.pack(fill='both',expand=True)
-        self.label(outer,'현재 구조의 모든 명시적 H를 포함합니다. 저장 대화상자의 디렉토리는 GUI를 실행한 HPC 서버의 경로입니다.','Status.TLabel',1130)
+        self.label(outer,'방법과 기저함수를 함께 설정합니다. 두 설정 탭은 값을 공유하며 현재 구조의 명시적 H를 모두 포함합니다.','Status.TLabel',1130)
         nb=ttk.Notebook(outer);nb.pack(fill='both',expand=True)
-        basic=self.frame(nb);advanced=self.frame(nb);basisframe=self.frame(nb);previewframe=self.frame(nb)
-        for f,t in [(basic,'계산 / 자원'),(advanced,'SCF / 물성 / 용매'),(basisframe,'기저함수 / ECP'),(previewframe,'입력 미리보기')]:nb.add(f,text=t)
+        quick=self.frame(nb);custom=self.frame(nb);previewframe=self.frame(nb)
+        for f,title in [(quick,'간편 설정'),(custom,'커스텀 설정'),(previewframe,'입력 미리보기')]:nb.add(f,text=title)
         defaults=gaussian_defaults(self.project);variables={}
         boolean_keys={'scf_tight','opt_tight','nosymm'}
         integer_keys={'charge','multiplicity','cpus','scf_max','opt_cycles','states','root'}
-        for k,v in defaults.items():
-            if isinstance(v,dict):continue
-            variables[k]=tk.BooleanVar(value=v) if k in boolean_keys else tk.StringVar(value=str(v))
-        def field(parent,label,key,values=None,row=0,col=0,width=32):
+        for key,value in defaults.items():
+            if isinstance(value,dict):continue
+            variables[key]=tk.BooleanVar(value=value) if key in boolean_keys else tk.StringVar(value=str(value))
+        def field(parent,label,key,values=None,row=0,col=0,width=16,readonly=False):
             ttk.Label(parent,text=label).grid(row=row,column=col*2,sticky='w',padx=8,pady=6)
-            widget=ttk.Combobox(parent,textvariable=variables[key],values=values,width=width) if values else ttk.Entry(parent,textvariable=variables[key],width=width)
-            widget.grid(row=row,column=col*2+1,sticky='ew',padx=8,pady=6);parent.columnconfigure(col*2+1,weight=1);return widget
-        field(basic,'제목 (ASCII)','title',row=0);field(basic,'계산 종류','job',list(GAUSSIAN_JOBS),row=1)
-        field(basic,'방법 / XC','method',METHODS,row=2);field(basic,'파동함수','spin',['Auto','R','U','ROHF'],row=3)
-        field(basic,'총전하','charge',row=4);field(basic,'스핀 다중도','multiplicity',row=5)
-        field(basic,'CPU %NProcShared','cpus',row=6);field(basic,'메모리 %Mem','memory',row=7)
-        field(basic,'체크포인트 %Chk','checkpoint',row=8);field(basic,'원자 고정','freeze',['None','Core','Fixed'],row=9)
-        xc=ttk.Frame(basic);xc.grid(row=10,column=0,columnspan=2,sticky='ew',pady=8)
+            widget=(ttk.Combobox(parent,textvariable=variables[key],values=values,width=width,state='readonly' if readonly else 'normal')
+                    if values else ttk.Entry(parent,textvariable=variables[key],width=width))
+            # A fixed character width keeps selectors at half the old 32/52
+            # character defaults, even when the window is maximized.
+            widget.grid(row=row,column=col*2+1,sticky='w',padx=8,pady=6);return widget
+        field(quick,'방법 / XC','method',METHODS,row=0)
+        quick_basis=field(quick,'기저함수 / 자동 ECP','basis',BASIS_SETS,row=0,col=1)
+        field(quick,'파동함수','spin',['Auto','R','U','ROHF'],row=1,readonly=True)
+        field(quick,'분산 보정','dispersion',['None','GD3','GD3BJ'],row=1,col=1,readonly=True)
+        field(quick,'계산 종류','job',list(GAUSSIAN_JOBS),row=2,readonly=True)
+        field(quick,'원자 고정','freeze',['None','Core','Fixed'],row=2,col=1,readonly=True)
+        field(quick,'총전하','charge',row=3,width=8);field(quick,'스핀 다중도','multiplicity',row=3,col=1,width=8)
+        field(quick,'CPU %NProcShared','cpus',row=4,width=8);field(quick,'메모리 %Mem','memory',row=4,col=1)
+        field(quick,'제목 (ASCII)','title',row=5,width=26);field(quick,'체크포인트 %Chk','checkpoint',row=5,col=1,width=26)
+        solvents=['None','Water','Methanol','Ethanol','Acetonitrile','Toluene','Benzene','Chloroform','Dichloromethane','TetraHydroFuran','DiMethylSulfoxide']
+        field(quick,'용매','solvent',solvents,row=6);field(quick,'용매 모델','solvation',['SMD','IEFPCM'],row=6,col=1,readonly=True)
+        basis_status=tk.StringVar()
+        ttk.Label(quick,textvariable=basis_status,style='Status.TLabel',wraplength=1040).grid(row=7,column=0,columnspan=4,sticky='w',padx=8,pady=10)
+        ttk.Label(quick,text='간편 기저 적용은 모든 원소에 위 기저함수를 지정하고 ECP를 자동 처리합니다. 원소별 기저/ECP와 외부 GenECP는 커스텀 설정에서 조절하세요. 총전하와 다중도는 직접 확인하세요.',style='Muted.TLabel',wraplength=1000).grid(row=9,column=0,columnspan=4,sticky='w',padx=8,pady=10)
+        detail=ttk.Notebook(custom);detail.pack(fill='both',expand=True)
+        methodframe=self.frame(detail);advanced=self.frame(detail);blocks=self.frame(detail)
+        methodframe.columnconfigure(3,weight=1)
+        for f,title in [(methodframe,'방법 / 기저함수 / ECP'),(advanced,'SCF / 최적화 / 물성'),(blocks,'추가 입력')]:detail.add(f,text=title)
+        field(methodframe,'방법 / XC','method',METHODS,row=0);field(methodframe,'기본 기저함수','basis',BASIS_SETS,row=0,col=1)
+        field(methodframe,'파동함수','spin',['Auto','R','U','ROHF'],row=1,readonly=True)
+        field(methodframe,'기저 방식','basis_mode',['single','mixed','custom'],row=1,col=1,readonly=True)
+        xc=ttk.Frame(methodframe);xc.grid(row=2,column=0,columnspan=4,sticky='w',pady=5)
         x=tk.StringVar(value='B');cor=tk.StringVar(value='LYP')
-        ttk.Label(xc,text='XC 조합').pack(side='left',padx=8);ttk.Combobox(xc,textvariable=x,values=EXCHANGE,width=10,state='readonly').pack(side='left');ttk.Combobox(xc,textvariable=cor,values=CORRELATION,width=10,state='readonly').pack(side='left',padx=5)
+        ttk.Label(xc,text='XC 조합').pack(side='left',padx=8)
+        ttk.Combobox(xc,textvariable=x,values=EXCHANGE,width=8,state='readonly').pack(side='left')
+        ttk.Combobox(xc,textvariable=cor,values=CORRELATION,width=8,state='readonly').pack(side='left',padx=5)
         def compose():
             method=x.get()+cor.get()
-            if method not in VALID_XC:raise ValueError('이 조합은 내장 검증 목록에 없습니다. 공식 DFT 문서에서 확인한 전체 키워드를 방법란에 직접 입력하세요.')
+            if method not in VALID_XC:raise ValueError('이 조합은 내장 검증 목록에 없습니다. 공식 문서에서 확인한 전체 키워드를 방법란에 입력하세요.')
             variables['method'].set(method)
         ttk.Button(xc,text='XC 반영',command=self.call(compose)).pack(side='left')
-        ttk.Label(basic,text='금속 코어의 전하는 원자별 형식전하 합으로 자동 확정하지 않습니다. 총전하·다중도를 직접 확인하세요.',style='Muted.TLabel',wraplength=1050).grid(row=11,column=0,columnspan=2,sticky='w',padx=8,pady=8)
-        for i,(label,key,values) in enumerate([
-            ('SCF 보조','scf',['XQC','QC','None']),('SCF 최대 반복','scf_max',None),('수치 적분격자','grid',['UltraFine','SuperFineGrid','FineGrid','None']),
-            ('최적화 최대 반복','opt_cycles',None),('분산 보정','dispersion',['None','GD3','GD3BJ']),('전자밀도 / population','population',['None','Regular','Full','Hirshfeld','NPA']),
-            ('용매 모델','solvation',['SMD','IEFPCM']),('용매','solvent',['None','Water','Methanol','Ethanol','Acetonitrile','Toluene','Benzene','Chloroform','Dichloromethane','TetraHydroFuran','DiMethylSulfoxide']),
-            ('TD NStates','states',None),('TD Root','root',None),('추가 route 키워드','extra',None)]):field(advanced,label,key,values,row=i,width=52)
-        checks=ttk.Frame(advanced);checks.grid(row=11,column=0,columnspan=2,sticky='w',padx=8,pady=10)
-        for key,text in [('scf_tight','SCF Tight'),('opt_tight','Opt Tight'),('nosymm','NoSymm')]:ttk.Checkbutton(checks,text=text,variable=variables[key]).pack(side='left',padx=8)
-        field(basisframe,'방식: single / mixed / custom','basis_mode',['single','mixed','custom'],row=0,width=30)
-        field(basisframe,'기본 기저함수','basis',BASIS_SETS,row=1,width=30)
-        bmaps=clone(defaults['basis_by_element']);emaps=clone(defaults['ecp_by_element']);elements=sorted({a['element'] for a in self.project['atoms']},key=lambda s:atomic_numbers[s])
-        bcontainer=ttk.Frame(basisframe);bcontainer.grid(row=2,column=0,columnspan=2,sticky='nsew');basisframe.rowconfigure(2,weight=1)
-        bt=self.tree(bcontainer,['element','basis','ecp'],['원소','기저함수','ECP'],height=6);bs=tk.StringVar(value='Def2SVP');ecp=tk.StringVar(value='Auto')
+        bmaps=clone(defaults['basis_by_element']);emaps=clone(defaults['ecp_by_element'])
+        elements=sorted({a['element'] for a in self.project['atoms']},key=lambda s:atomic_numbers[s])
+        bcontainer=ttk.Frame(methodframe);bcontainer.grid(row=3,column=0,columnspan=4,sticky='nsew');methodframe.rowconfigure(3,weight=1)
+        bt=self.tree(bcontainer,['element','basis','ecp'],['원소','기저함수','ECP'],height=4)
+        bs=tk.StringVar(value='Def2SVP');ecp=tk.StringVar(value='Auto')
         def fill_bases(*_):
             bt.delete(*bt.get_children())
-            for e in elements:bt.insert('','end',iid=e,values=(e,bmaps.get(e,variables['basis'].get()),emaps.get(e,'Auto')))
-        def pick_basis(e=None):
+            for el in elements:bt.insert('','end',iid=el,values=(el,bmaps.get(el,variables['basis'].get()),emaps.get(el,'Auto')))
+            basis_status.set('현재 기저 방식: '+variables['basis_mode'].get()+f' · 원소별 지정 {len(bmaps)}개 · Sn + def2는 Def2 ECP 자동 생성')
+        def pick_basis(event=None):
             if bt.selection():
                 el=bt.selection()[0];bs.set(bmaps.get(el,variables['basis'].get()));ecp.set(emaps.get(el,'Auto'))
-        basis_edit=ttk.Frame(basisframe);basis_edit.grid(row=3,column=0,columnspan=2,sticky='ew',pady=5)
-        ttk.Combobox(basis_edit,textvariable=bs,values=BASIS_SETS,width=24).pack(side='left',padx=4)
-        ttk.Combobox(basis_edit,textvariable=ecp,values=['Auto','None','Def2','SDD','LANL2DZ'],width=15).pack(side='left',padx=4)
+        basis_edit=ttk.Frame(methodframe);basis_edit.grid(row=4,column=0,columnspan=4,sticky='w',pady=5)
+        ttk.Combobox(basis_edit,textvariable=bs,values=BASIS_SETS,width=12).pack(side='left',padx=4)
+        ttk.Combobox(basis_edit,textvariable=ecp,values=['Auto','None','Def2','SDD','LANL2DZ'],width=8).pack(side='left',padx=4)
         def apply_basis():
             if not bt.selection():raise ValueError('기저함수를 설정할 원소 행을 선택하세요.')
             for el in bt.selection():bmaps[el]=bs.get();emaps[el]=ecp.get()
-            fill_bases()
-        ttk.Button(basis_edit,text='선택 원소 적용',command=self.call(apply_basis)).pack(side='left');bt.bind('<<TreeviewSelect>>',pick_basis);variables['basis'].trace_add('write',fill_bases);fill_bases()
-        ttk.Label(basisframe,text='Sn의 def2 기저함수에는 Auto 선택 시 Def2 ECP 블록을 함께 생성합니다. custom은 검증한 외부 기저/ECP 원문 입력용입니다.',style='Muted.TLabel',wraplength=1050).grid(row=4,column=0,columnspan=2,sticky='w',pady=5)
-        custom_keyword=tk.StringVar(value='GenECP');ttk.Combobox(basisframe,textvariable=custom_keyword,values=['Gen','GenECP'],state='readonly').grid(row=5,column=0,sticky='w',pady=4)
-        customframe=ttk.Frame(basisframe);customframe.grid(row=6,column=0,columnspan=2,sticky='nsew');basisframe.rowconfigure(6,weight=1);custom_text=self.textbox(customframe,height=7)
-        preview=self.textbox(previewframe,height=24);info=tk.StringVar();ttk.Label(previewframe,textvariable=info,wraplength=1080,style='Status.TLabel').pack(fill='x',pady=4)
+            variables['basis_mode'].set('mixed');fill_bases()
+        ttk.Button(basis_edit,text='선택 원소 적용',command=self.call(apply_basis)).pack(side='left')
+        bt.bind('<<TreeviewSelect>>',pick_basis)
+        def quick_apply(event=None):
+            bmaps.clear();emaps.clear();variables['basis_mode'].set('mixed');fill_bases()
+        ttk.Button(quick,text='이 기저함수를 모든 원소에 간편 적용',command=self.call(quick_apply)).grid(row=8,column=0,columnspan=4,sticky='w',padx=8,pady=4)
+        quick_basis.bind('<<ComboboxSelected>>',quick_apply)
+        for key in ('basis','basis_mode'):variables[key].trace_add('write',fill_bases)
+        fill_bases()
+        customrow=ttk.Frame(methodframe);customrow.grid(row=5,column=0,columnspan=4,sticky='w',pady=3)
+        ttk.Label(customrow,text='외부 기저 / ECP 블록 (기저 방식 custom)').pack(side='left',padx=8)
+        custom_keyword=tk.StringVar(value='GenECP')
+        ttk.Combobox(customrow,textvariable=custom_keyword,values=['Gen','GenECP'],state='readonly',width=8).pack(side='left')
+        customframe=ttk.Frame(methodframe);customframe.grid(row=6,column=0,columnspan=4,sticky='nsew');methodframe.rowconfigure(6,weight=1)
+        custom_text=self.textbox(customframe,height=5)
+        fields=[('SCF 보조','scf',['XQC','QC','None']),('SCF 최대 반복','scf_max',None),
+                ('수치 적분격자','grid',['UltraFine','SuperFineGrid','FineGrid','None']),('최적화 최대 반복','opt_cycles',None),
+                ('분산 보정','dispersion',['None','GD3','GD3BJ']),('전자밀도 / population','population',['None','Regular','Full','Hirshfeld','NPA']),
+                ('용매 모델','solvation',['SMD','IEFPCM']),('용매','solvent',solvents),('TD NStates','states',None),('TD Root','root',None)]
+        for i,(label,key,values) in enumerate(fields):field(advanced,label,key,values,row=i//2,col=i%2,width=26)
+        checks=ttk.Frame(advanced);checks.grid(row=5,column=0,columnspan=4,sticky='w',padx=8,pady=10)
+        for key,title in [('scf_tight','SCF Tight'),('opt_tight','Opt Tight'),('nosymm','NoSymm')]:ttk.Checkbutton(checks,text=title,variable=variables[key]).pack(side='left',padx=8)
+        field(blocks,'추가 route 키워드','extra',row=0,width=26)
+        ttk.Label(blocks,text='좌표 / 기저 블록 뒤에 덧붙일 추가 입력',style='Muted.TLabel').grid(row=1,column=0,columnspan=2,sticky='w',padx=8,pady=8)
+        additionalframe=ttk.Frame(blocks);additionalframe.grid(row=2,column=0,columnspan=2,sticky='nsew');blocks.rowconfigure(2,weight=1);blocks.columnconfigure(1,weight=1)
+        additional_text=self.textbox(additionalframe,height=12)
+        preview=self.textbox(previewframe,height=24);info=tk.StringVar()
+        ttk.Label(previewframe,textvariable=info,wraplength=1080,style='Status.TLabel').pack(fill='x',pady=4)
         def gather():
-            opts={k:(v.get() if k in boolean_keys else int(v.get()) if k in integer_keys else v.get()) for k,v in variables.items()}
-            opts.update(basis_by_element=bmaps,ecp_by_element=emaps,custom_basis=custom_text.get('1.0','end'),custom_keyword=custom_keyword.get())
+            opts={key:(var.get() if key in boolean_keys else int(var.get()) if key in integer_keys else var.get()) for key,var in variables.items()}
+            opts.update(basis_by_element=clone(bmaps),ecp_by_element=clone(emaps),custom_basis=custom_text.get('1.0','end'),custom_keyword=custom_keyword.get(),additional=additional_text.get('1.0','end'))
             return opts
         def generate():
             text,report=build_gaussian(self.project,gather());preview.delete('1.0','end');preview.insert('1.0',text)
@@ -1995,9 +2218,13 @@ class NativeApp:
             path=filedialog.asksaveasfilename(parent=win,title='HPC 디렉토리 선택 / Gaussian 입력 저장',initialdir=self.settings['last_directory'],defaultextension='.gjf',filetypes=[('Gaussian input','*.gjf *.com'),('All files','*')])
             if path:
                 atomic_write(path,text);self.settings['last_directory']=str(Path(path).parent);self.log('Gaussian 입력 저장: '+path);self.save_settings()
-        row=ttk.Frame(outer);row.pack(fill='x',pady=8)
-        for text,fn in [('입력 생성 / 갱신',generate),('HPC 경로에 .gjf / .com 저장',save_input),('공식 문서 / 출처',self.help_dialog)]:ttk.Button(row,text=text,command=self.call(fn)).pack(side='left',padx=5)
-        ttk.Button(row,text='닫기',command=win.destroy).pack(side='right');self.apply_theme()
+        # Reserve action-button height before the expandable notebook. At high
+        # DPI a large preview Text request must not consume the button row.
+        row=ttk.Frame(outer);row.pack(side='bottom',fill='x',pady=8,before=nb)
+        for title,fn in [('입력 생성 / 갱신',generate),('HPC 경로에 .gjf / .com 저장',save_input),('공식 문서 / 출처',self.help_dialog)]:ttk.Button(row,text=title,command=self.call(fn)).pack(side='left',padx=5)
+        ttk.Button(row,text='닫기',command=win.destroy).pack(side='right')
+        win.gaussian_ui={'notebook':nb,'detail':detail,'variables':variables,'quick':quick,'methodframe':methodframe,'basis_tree':bt,'basis_maps':bmaps,'ecp_maps':emaps,'basis_value':bs,'ecp_value':ecp,'gather':gather,'generate':generate,'custom_text':custom_text,'custom_keyword':custom_keyword}
+        self.apply_theme()
     def color_selection(self):
         if not self.selection:raise ValueError('색상을 바꿀 원자를 선택하세요.')
         color=colorchooser.askcolor(parent=self.root,title='선택 원자 색상')[1]
@@ -2023,6 +2250,7 @@ class NativeApp:
             self.settings.update(korean_font=font.get(),english_font=latin.get(),font_size=v,theme=theme.get());self.apply_theme();update_status()
         for variable in (font,latin):variable.trace_add('write',lambda *_:update_status())
         ttk.Label(general,textvariable=font_status,wraplength=800,style='Status.TLabel').pack(fill='x',pady=6)
+        self.label(general,'텍스트: '+TEXT_RENDERING['mode']+f" · 화면 DPI {self.root.winfo_fpixels('1i'):.0f}",'Muted.TLabel',800)
         ttk.Label(general,text='한글 예문: 맑은고딕 · 굴림 · 주석 · 결합길이',font=self.fonts.named['ui']).pack(anchor='w',pady=3)
         ttk.Label(general,text='English: Arial / Calibri · Sn12 O20 · 1.234 A',font=self.fonts.named['english']).pack(anchor='w',pady=3)
         self.button(general,'글꼴 / 모드 미리보기',update_font)
@@ -2158,7 +2386,7 @@ class NativeApp:
         self.label(frame,'XYZ에는 결합 정보가 없고 PDB에는 결합차수가 없습니다. 전체 편집 정보를 보존하려면 프로젝트 JSON을 함께 저장하세요. HTML은 기존 웹 기능을 실행하며 새로운 Python 기능은 .py에서 실행합니다.','Muted.TLabel',600);self.apply_theme()
     def help_dialog(self):
         win=self.dialog('사용 안내 / 과학적 범위 / 출처','1000x780');frame=self.frame(win);frame.pack(fill='both',expand=True);text=self.textbox(frame,height=28)
-        guide='''Tin Oxo Studio 3.1 · Python/Tk/X11
+        guide='''Tin Oxo Studio 4.0 · Python/Tk/X11
 
 실행: python TinOxoStudio.py
 서버 Python에 Tk, RDKit, ASE, NumPy, SciPy, Pillow가 필요합니다.
@@ -2167,7 +2395,7 @@ DISPLAY는 SSH가 설정한 값을 유지합니다. 이 앱은 OpenGL을 사용�
 
 1. 코어를 선택하고 빈 코어 초기화 또는 예제 완성을 누릅니다.
 2. 단일/다중/사각형 모드로 원자를 선택합니다. Shift는 추가 선택입니다.
-3. 리간드 붙이기에서 공통 적용 또는 개별 대상을 선택하여 계획에 추가합니다.
+3. 리간드 붙이기에서 공통 적용 또는 개별 대상을 선택하고, 구조 팝업에서 결합 원자를 고른 뒤 계획에 추가합니다.
 4. R은 Sn–C 한 점, L은 카복실레이트 O 두 점, P는 포스피네이트 O 두 점입니다.
 5. Sn12 OH 버튼은 문헌 코어 H 6개를 실제 지우고 O 6개를 선택합니다.
 6. Sn3는 중앙 O 및 H를 제거한 6원자 Sn3O3 고리입니다. 전하는 미지정입니다.
@@ -2187,6 +2415,7 @@ XYZ 읽기: 비금속 분자는 RDKit xyz2mol, 금속 포함 구조는 ASE 기�
 거리/각도는 2/3/4개 원자를 순서대로 선택하여 측정합니다.
 
 Gaussian: 현재 Cartesian 좌표, 전하/다중도, 방법/XC, 기저/ECP, CPU/메모리, SCF/Opt/Freq/TD/NMR/Polar/Force를 설정합니다.
+간편 설정은 방법과 기저함수를 함께 고릅니다. 커스텀 설정에서 XC 조합, 원소별 기저/ECP, 외부 블록과 SCF/물성 조건을 조절합니다. 두 탭은 같은 설정값을 공유합니다.
 Sn + def2는 명시적인 GenECP + Def2 ECP 블록을 생성합니다. 전자수/다중도 홀짝도 검사합니다.
 파일은 이 GUI가 실행된 HPC의 디렉토리에 저장됩니다. Gaussian 실행이나 스케줄러 제출은 하지 않습니다.
 전하/다중도와 원자별 전하는 서로 다른 데이터입니다. 미완성 코어의 전하는 직접 정해야 합니다.
@@ -2209,7 +2438,7 @@ VESTA는 원소별 색상 숫자만 참조했습니다. VESTA 실행파일은 �
 
 
 def main(argv=None):
-    parser=argparse.ArgumentParser(description='Tin Oxo Studio 3.1 — native Tk/X11 molecular editor')
+    parser=argparse.ArgumentParser(description='Tin Oxo Studio 4.0 — native Tk/X11 molecular editor')
     parser.add_argument('project',nargs='?',help='project JSON, legacy HTML, XYZ, MOL/SDF, PDB, CIF')
     parser.add_argument('--check',action='store_true',help='check dependencies and core templates without DISPLAY')
     parser.add_argument('--export-core',choices=['3','6','12'],help='export bare core as XYZ without GUI')

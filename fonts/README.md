@@ -9,6 +9,10 @@ These unmodified font files are bundled to keep Korean/English text readable on 
 
 They are registered privately with Fontconfig for this process. No administrator access, global font configuration change or runtime download is needed. The application license does not replace the font licenses.
 
+Version 4.0 initializes a private Fontconfig configuration before Tk: outline glyphs, grayscale antialiasing, full hinting, and no embedded bitmap strikes. Small explanatory text is at least 10 pt and follows the selected size. On Windows, DPI awareness is set before creating Tk windows to avoid OS bitmap enlargement. The appearance dialog shows the active text mode and display DPI. Native Tk text is drawn directly at display resolution; the 2D ligand picker separately uses a 2× raster and downsamples it.
+
+Fontconfig API and configuration references: https://fontconfig.pages.freedesktop.org/fontconfig/fontconfig-devel/ and https://fontconfig.pages.freedesktop.org/fontconfig/fontconfig-user.html .
+
 The Korean dropdown offers Malgun Gothic (맑은고딕) and Gulim (굴림); the English dropdown offers Arial and Calibri. Exact Microsoft faces are used when installed. If missing, the UI explicitly reports fallback to NanumGothic/Carlito. Microsoft font binaries are not bundled.
 
 To use Microsoft fonts, copy your authorized TTF/TTC files from the Windows Fonts folder to the HPC server using SFTP, then choose **화면 설정 → 글꼴 파일 추가**. The dialog browses the HPC filesystem. Alternatively put the files in `fonts/user/` or the directory specified by `TINOXO_FONT_DIR` before launching the app. User-added fonts are kept out of Git and are not included in the provided release archive.

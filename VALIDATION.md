@@ -1,4 +1,14 @@
-# Validation — version 3.1.0, 2026-11-06
+# Validation — version 4.0.0, 2026-11-06
+
+- Python 3.13.5 / Tk 8.6 / RDKit 2026.09.1 / ASE 3.29.0, local Xorg X11 at 1364×1024: **72 tests passed**, comprising 56 headless-compatible and 16 GUI checks. The same suite is run from an extracted 4.0 source package before publication. GitHub publishes the final branch as a source ZIP, retaining the same program, fonts, examples and tests.
+- New chemistry checks verify attachment through non-first C, N and O atoms; retained N–H bonds for coordination; replacement of one O–H for covalent attachment; capping the old dummy position when the anchor moves; aromatic bond and stereochemical graph preservation; rejected invalid/dummy/saturated anchors; explicit bridge donor ordering and group selection; and project round-trip, same-ligand re-edit and clearing of the stored index.
+- GUI checks exercise clicking a rendered atom, cancel without changing the project, one selected nitrogen applied to two Sn hosts, asynchronous application and undo, the shared Gaussian method/basis values, fixed-width selectors after window resizing, custom per-element basis/ECP, restoring uniform bases, and custom GenECP input through the rebuilt tabs.
+- Main UI, ligand picker, quick/custom Gaussian tabs and light theme were visually inspected. The original-index atom list and 2× 2D drawing were checked against the selected atom. Korean and English resolved to bundled NanumGothic/Carlito on the local Linux display.
+- A separate 144-DPI X11 pass checked the quick/custom layouts and the visible generate/save/close actions. Gaussian action space is reserved before the notebook, and tree row heights use actual font metrics. A large-font regression covers the previously compressed action row.
+- Process-local Fontconfig setup is exercised before Tk creation. It loads a full configuration, parses rendering overrides into that allocated configuration, builds fonts, installs it as current, then registers bundled fonts. Existing font/encoding and viewer regressions still pass.
+- Windows DPI-awareness initialization is implemented but Windows was not available for runtime validation. The user's HPC/MobaXterm session and a Gaussian 16 executable were not available. The Tk 8.6 environment remains the recommended GUI configuration.
+
+## Earlier 3.1 validation record
 
 - Python 3.13 / Tk 8.6 / RDKit 2026.09.1 / ASE 3.29.0, local Xorg X11 at 1600×1000: **54 tests passed** (44 headless-compatible, 10 GUI integration).
 - New regressions check fixed orthographic pixels per Angstrom under 23 rotations of an anisotropic model; linear wheel zoom; invariance under window resizing, panning and visibility toggles; unchanged molecular coordinates/graph; coalesced motion events; reuse of Canvas item IDs; and final detailed drawing after release.

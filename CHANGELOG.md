@@ -1,5 +1,16 @@
 # Changes
 
+## 4.0.0 — 2026-11-06
+
+- Add a clickable, 2× rasterized RDKit 2D ligand popup with the original SMILES atom numbers, a selectable atom list, and explicit confirmation/cancellation. Library selection opens the popup; manual SMILES are checked before adding/applying a plan.
+- Pass the chosen original atom index to fragment generation and attachment without rewriting or canonicalizing SMILES. Keep stereochemical graph indices, apply one selection to multiple hosts, persist `attachmentIndex`, and reuse it when editing the same ligand.
+- Replace one H at the selected covalent anchor; preserve H for coordination. When an existing dummy is moved, cap its former position with H. For L/P bridges, select the donor group and donor-to-host order explicitly.
+- Configure process-local Fontconfig outline glyphs, grayscale antialiasing and full hinting before Tk creation. Use a complete private configuration, build fonts, then set it current. Set Windows DPI awareness before Tk initialization, and scale small explanation text with the chosen font size (minimum 10 pt).
+- Rebuild Gaussian setup as shared **간편 설정 / 커스텀 설정 / 입력 미리보기** tabs. Combine method/XC and basis/ECP controls; preserve element-specific bases, external Gen/GenECP, XC composition and detailed SCF/property controls.
+- Halve selector character widths (32→16, 52→26), remove expansion of those fields, and provide an explicit uniform-basis action that clears element overrides.
+- Reserve Gaussian action-button space before the notebook and size table rows from font metrics so higher DPI or larger text cannot compress the save actions or clip table text.
+- Extend regression coverage to 72 passing checks, including 16 GUI checks on local X11/Tk 8.6. Inspect dark/light layouts and ligand atom selection. Gaussian execution, Windows and the user's remote HPC session are not covered by these local checks.
+
 ## 3.1.0 — 2026-11-06
 
 - Restrict Korean font preferences to 맑은고딕 / 굴림 and English preferences to Arial / Calibri. Migrate legacy font settings, show actual resolved faces, and separate Korean UI / English code and labels.

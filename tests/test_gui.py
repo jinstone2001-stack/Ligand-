@@ -37,6 +37,7 @@ class GuiTests(unittest.TestCase):
   self.app.select([1,2]);self.app.attach_dialog();self.root.update();win=[w for w in self.root.winfo_children() if isinstance(w,t.tk.Toplevel)][-1]
   entry=next(w for w in descendants(win) if isinstance(w,t.ttk.Entry) and not isinstance(w,t.ttk.Combobox) and w.grid_info().get('row')==1 and w.grid_info().get('column')==1)
   entry.insert(0,'[*:1]C');button=next(w for w in descendants(win) if isinstance(w,t.ttk.Button) and w.cget('text')=='모두 적용');button.invoke()
+  self.root.update();picker=next(w.atom_picker for w in self.root.winfo_children() if hasattr(w,'atom_picker'));picker.confirm()
   deadline=time.monotonic()+20
   while self.app.busy and time.monotonic()<deadline:self.root.update();time.sleep(.01)
   self.root.update();self.assertFalse(self.app.busy);self.assertEqual(len(self.app.project['atoms']),46)
