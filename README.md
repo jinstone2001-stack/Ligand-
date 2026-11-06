@@ -1,6 +1,6 @@
 # Ligand-
 
-**Tin Oxo Studio 3.0** — Sn 옥소 클러스터를 설계하는 Python/Tkinter 기반 편집기입니다. HPC에서 MobaXterm의 X11 전달을 통해 실행할 수 있으며, 브라우저나 OpenGL이 필요하지 않습니다.
+**Tin Oxo Studio 3.1** — Sn 옥소 클러스터를 설계하는 Python/Tkinter 기반 편집기입니다. HPC에서 MobaXterm의 X11 전달을 통해 실행할 수 있으며, 브라우저나 OpenGL이 필요하지 않습니다.
 
 ## 설치 및 실행
 
@@ -18,6 +18,14 @@ python TinOxoStudio.py examples/Sn12_Methyl.tinoxo.json
 
 MobaXterm의 X server와 SSH X11 forwarding을 켠 상태에서 실행하세요. 설치·화학 처리·저장 형식·Gaussian 설정의 자세한 설명은 [한국어 사용 설명서](README_KO.md)를 참고하세요.
 
+## 3.1 업데이트
+
+- 한글 글꼴은 맑은고딕/굴림, 영문은 Arial/Calibri 중 선택합니다. 실제 설치 상태와 대체 글꼴을 표시합니다.
+- Windows 글꼴이 없는 서버에서도 동봉한 나눔고딕/Carlito를 오프라인으로 사용합니다. 정확한 Windows 글꼴이 필요하면 HPC에 TTF/TTC를 추가하세요.
+- 회전 시 도형 재생성을 없애고, 이벤트 병합과 경량 표시로 프레임 처리를 줄였습니다.
+- 회전·이동·창 크기·H 표시 변경이 배율을 바꾸지 않습니다. 휠로 확대하고 맞춤 버튼으로 전체 구조를 다시 맞춥니다.
+- [변경 기록](CHANGELOG.md) / [글꼴 설치 안내](fonts/README.md)
+
 ## 주요 기능
 
 - Sn12·Sn6·Sn3 코어, 리간드 부착 및 원자·결합 편집
@@ -31,14 +39,14 @@ MobaXterm의 X server와 SSH X11 forwarding을 켠 상태에서 실행하세요.
 
 ## 파일 및 검증
 
-전체 다운로드 패키지: [TinOxoStudio_Python_3_0_Package.zip](dist/TinOxoStudio_Python_3_0_Package.zip)
+전체 다운로드 패키지: [TinOxoStudio_Python_3_1_Package.zip](dist/TinOxoStudio_Python_3_1_Package.zip)
 
 ```bash
 python TinOxoStudio.py --check
 python -m unittest discover -s tests -v
 ```
 
-로컬 화학/파일 검사 30개와 X11 GUI 검사 5개를 실행했습니다. X11 DISPLAY가 없으면 GUI 검사는 생략합니다. 실제 HPC 연결과 Gaussian 16 계산은 시험하지 않았습니다. [검증 기록](VALIDATION.md)과 [출처·의존성 고지](THIRD_PARTY_NOTICES.md)를 확인하세요.
+글꼴·UTF-8/CP949·고정 배율·이벤트 병합·화학/파일·GUI를 포함한 54개 검사를 로컬 X11에서 통과했습니다. X11 DISPLAY가 없으면 GUI 검사는 생략합니다. 실제 HPC 연결과 Gaussian 16 계산은 시험하지 않았습니다. [검증 기록](VALIDATION.md)과 [출처·의존성 고지](THIRD_PARTY_NOTICES.md)를 확인하세요.
 
 ## 라이선스
 

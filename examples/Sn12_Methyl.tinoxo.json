@@ -2434,7 +2434,7 @@
   "settings": {
     "theme": "dark",
     "font_size": 11,
-    "font_family": "DejaVu Sans",
+    "font_family": "Malgun Gothic",
     "selection": "#00e5ff",
     "element_colors": {
       "H": "#ffcccc",
@@ -2565,6 +2565,10 @@
       "covalent": 1.18,
       "minimum": 2.0
     },
-    "last_directory": "."
+    "last_directory": ".",
+    "korean_font": "맑은고딕",
+    "english_font": "Arial",
+    "viewer_fps": 30,
+    "interaction_lod": true
   }
 }

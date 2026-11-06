@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Tin Oxo Studio 3.0 — native Tk/X11 molecular editor.
+"""Tin Oxo Studio 3.1 — native Tk/X11 molecular editor.
 Run: python TinOxoStudio.py
 Dependencies: Python >=3.10, tkinter, numpy, scipy, rdkit, ase, Pillow.
 No browser, network access, OpenGL, or Gaussian executable is needed for editing.
@@ -8,7 +8,7 @@ Coordinate provenance and external reference URLs are embedded in the program.
 """
 from __future__ import annotations
 import argparse, base64, copy, csv, html, io, itertools, json, math, os, queue, re
-import sys, tempfile, threading, time, traceback, uuid, zlib
+import sys, tempfile, threading, time, traceback, uuid, zlib, unicodedata, shutil
 from collections import Counter, defaultdict
 from datetime import datetime
 from pathlib import Path
@@ -27,7 +27,7 @@ try:
 except ImportError as exc:
     raise SystemExit("ASE가 필요합니다. python -m pip install ase") from exc
 from PIL import Image, ImageDraw, ImageFont
-VERSION = "3.0.0"
+VERSION = "3.1.0"
 PT = Chem.GetPeriodicTable()
 SYMBOLS = chemical_symbols[1:119]
 METALS = set(SYMBOLS) - set("H He B C N O F Ne Si P S Cl Ar Ge As Se Br Kr Sb Te I Xe At Rn Ts Og".split())
@@ -37,7 +37,7 @@ LEGACY_HTML = "eJy8vW2TXMWVLvqdX7FPE3ONPN2tnZn7tSU6RjTC4gwghSR7bE84HNVdu9U1tLr6V
 # VESTA defines H–Am and the generic XX=(0.3,0.3,0.3); other elements use XX.
 VESTA_COLORS = {'H': '#ffcccc', 'D': '#ccccff', 'He': '#fce9cf', 'Li': '#86e074', 'Be': '#5fd87b', 'B': '#20a20f', 'C': '#814929', 'N': '#b0bae6', 'O': '#ff0300', 'F': '#b0bae6', 'Ne': '#ff38b5', 'Na': '#fadd3d', 'Mg': '#fc7c16', 'Al': '#81b3d6', 'Si': '#1b3bfa', 'P': '#c19cc3', 'S': '#fffa00', 'Cl': '#32fc03', 'Ar': '#cffec5', 'K': '#a122f7', 'Ca': '#5b96be', 'Sc': '#b663ac', 'Ti': '#78caff', 'V': '#e61a00', 'Cr': '#00009e', 'Mn': '#a9099e', 'Fe': '#b57200', 'Co': '#0000af', 'Ni': '#b8bcbe', 'Cu': '#2247dd', 'Zn': '#8f9082', 'Ga': '#9fe474', 'Ge': '#7e6fa6', 'As': '#75d057', 'Se': '#9aef10', 'Br': '#7f3103', 'Kr': '#fac1f3', 'Rb': '#ff0099', 'Sr': '#00ff27', 'Y': '#67988e', 'Zr': '#00ff00', 'Nb': '#4cb376', 'Mo': '#b486b0', 'Tc': '#cdafcb', 'Ru': '#cfb8ae', 'Rh': '#ced2ab', 'Pd': '#c2c4b9', 'Ag': '#b8bcbe', 'Cd': '#f31fdc', 'In': '#d781bb', 'Sn': '#9b8fba', 'Sb': '#d88350', 'Te': '#ada252', 'I': '#8f1f8b', 'Xe': '#9ba1f8', 'Cs': '#0fffb9', 'Ba': '#1ef02d', 'La': '#5ac449', 'Ce': '#d1fd06', 'Pr': '#fde206', 'Nd': '#fc8e07', 'Pm': '#0000f5', 'Sm': '#fd067d', 'Eu': '#fb08d5', 'Gd': '#c004ff', 'Tb': '#7104fe', 'Dy': '#3106fd', 'Ho': '#0742fb', 'Er': '#49733b', 'Tm': '#0000e0', 'Yb': '#27fdf4', 'Lu': '#26fdb5', 'Hf': '#b4b459', 'Ta': '#b79b56', 'W': '#8e8a80', 'Re': '#b3b18e', 'Os': '#c9b179', 'Ir': '#c9cf73', 'Pt': '#ccc6bf', 'Au': '#feb338', 'Hg': '#d3b8cc', 'Tl': '#96896d', 'Pb': '#53535b', 'Bi': '#d230f8', 'Po': '#0000ff', 'At': '#0000ff', 'Rn': '#ffff00', 'Fr': '#000000', 'Ra': '#6eaa59', 'Ac': '#649e73', 'Th': '#26fe78', 'Pa': '#29fb35', 'U': '#7aa2aa', 'Np': '#4c4c4c', 'Pu': '#4c4c4c', 'Am': '#4c4c4c'}
 DEFAULT_ELEMENT_COLORS = {s:VESTA_COLORS.get(s, "#4c4c4c") for s in SYMBOLS}
-DEFAULTS = {"theme":"dark", "font_size":11, "font_family":"DejaVu Sans", "selection":"#00e5ff",
+DEFAULTS = {"theme":"dark", "font_size":11, "font_family":"Malgun Gothic", "korean_font":"맑은고딕", "english_font":"Arial", "viewer_fps":30, "interaction_lod":True, "selection":"#00e5ff",
  "element_colors":DEFAULT_ELEMENT_COLORS, "text_colors":{}, "ff":"MMFF94", "favorites":[],
  "contact":{"mode":"radii", "vdw":0.75,"covalent":1.18,"minimum":2.0}, "last_directory":str(Path.cwd())}
 SOURCES = {
@@ -683,7 +683,7 @@ def new_project():
 def read_structure(path):
     path=Path(path);ext=path.suffix.lower()
     if ext in ('.json','.tinoxo','.html','.htm'):
-        text=path.read_text(encoding='utf-8')
+        text=read_unicode_text(path)
         if ext in ('.html','.htm'):
             match=re.search(r'<script[^>]*\bid=["\']initialProject["\'][^>]*>(.*?)</script>',text,re.S|re.I)
             lib=re.search(r'<script[^>]*\bid=["\']structureLibrary["\'][^>]*>(.*?)</script>',text,re.S|re.I)
@@ -763,7 +763,7 @@ def portable_html(p,bank,settings):
     b.setdefault('trash',[]);b.setdefault('updatedAt',datetime.now().isoformat());b.setdefault('id',uuid.uuid4().hex)
     # Existing browser editor understands the common atom/bond/project fields.
     text=inject(text,'initialProject',p);text=inject(text,'structureLibrary',b)
-    notice='<div style="background:#153b4a;color:white;padding:8px">Python 3.0 project snapshot · 이 HTML은 기존 웹 편집기입니다. 새 최적화/검사/Gaussian 기능은 TinOxoStudio.py에서 실행하세요.</div>'
+    notice='<div style="background:#153b4a;color:white;padding:8px">Python 3.1 project snapshot · 이 HTML은 기존 웹 편집기입니다. 새 최적화/검사/Gaussian 기능은 TinOxoStudio.py에서 실행하세요.</div>'
     text=text.replace('<body>','<body>'+notice,1)
     raw=json.dumps(settings,ensure_ascii=False).replace('<','\\u003c')
     return text.replace('</body>',f'<script id="nativeSettings" type="application/json">{raw}</script></body>')
@@ -900,50 +900,258 @@ def build_gaussian(p,options):
     if any(a['element'] in METALS for a in p['atoms']):warnings.append('금속의 배위결합을 Gaussian 연결차수로 강제하지 않았습니다. Cartesian 핵 좌표와 지정 전하/다중도를 사용합니다.')
     return text,{'electrons':ne,'warnings':warnings,'ecp':ecps,'route':' '.join(route)}
 
+# --------------------- Unicode / bilingual font handling ----------------------
+KOREAN_FONT_CHOICES=('맑은고딕','굴림')
+ENGLISH_FONT_CHOICES=('Arial','Calibri')
+FONT_ALIASES={'맑은고딕':('Malgun Gothic','맑은 고딕','맑은고딕'),
+              '굴림':('Gulim','굴림'), 'Arial':('Arial',), 'Calibri':('Calibri',)}
+HANGUL_RE=re.compile(r'[\u1100-\u11ff\u3130-\u318f\uac00-\ud7af]+')
+FONT_REGISTRATION={'registered':[],'errors':[]}
+
+def read_unicode_text(path):
+    """UTF-8/BOM is canonical; migrate legacy Korean CP949 without replacement."""
+    raw=Path(path).read_bytes()
+    try:return raw.decode('utf-8-sig')
+    except UnicodeDecodeError:
+        try:return raw.decode('cp949')
+        except UnicodeDecodeError as exc:raise ValueError('텍스트를 UTF-8 또는 CP949로 읽을 수 없습니다: '+str(path)) from exc
+
+def font_directories():
+    dirs=[Path(__file__).resolve().parent/'fonts',Path.home()/'.local/share/fonts/tinoxo-studio']
+    if os.environ.get('TINOXO_FONT_DIR'):dirs.insert(0,Path(os.environ['TINOXO_FONT_DIR']).expanduser())
+    return dirs
+
+def register_local_fonts():
+    """Register bundled/user fonts privately; no root permissions or downloads."""
+    paths=sorted({str(p.resolve()) for d in font_directories() if d.is_dir() for p in d.rglob('*')
+                  if p.is_file() and p.suffix.lower() in ('.ttf','.ttc','.otf')})
+    result={'registered':[],'errors':[]}
+    try:
+        if sys.platform.startswith('linux'):
+            import ctypes,ctypes.util
+            lib=ctypes.CDLL(ctypes.util.find_library('fontconfig') or 'libfontconfig.so.1')
+            lib.FcConfigAppFontAddFile.argtypes=[ctypes.c_void_p,ctypes.c_char_p];lib.FcConfigAppFontAddFile.restype=ctypes.c_int
+            lib.FcConfigBuildFonts.argtypes=[ctypes.c_void_p];lib.FcConfigBuildFonts.restype=ctypes.c_int
+            for path in paths:
+                if lib.FcConfigAppFontAddFile(None,os.fsencode(path)):result['registered'].append(path)
+                else:result['errors'].append('폰트 등록 실패: '+Path(path).name)
+            if paths:lib.FcConfigBuildFonts(None)
+        elif sys.platform=='win32':
+            import ctypes
+            for path in paths:
+                add=ctypes.windll.gdi32.AddFontResourceExW
+                add.argtypes=[ctypes.c_wchar_p,ctypes.c_uint,ctypes.c_void_p];add.restype=ctypes.c_int
+                if add(str(path),0x10,None):result['registered'].append(path)
+                else:result['errors'].append('폰트 등록 실패: '+Path(path).name)
+    except (OSError,AttributeError) as exc:result['errors'].append(str(exc))
+    FONT_REGISTRATION.update(result)
+    return result
+
+
+def font_file_for_family(family):
+    """Find the same Fontconfig face used by Tk for raster image export."""
+    if sys.platform.startswith('linux'):
+        import ctypes,ctypes.util
+        try:
+            lib=ctypes.CDLL(ctypes.util.find_library('fontconfig') or 'libfontconfig.so.1')
+            lib.FcNameParse.argtypes=[ctypes.c_char_p];lib.FcNameParse.restype=ctypes.c_void_p
+            lib.FcConfigSubstitute.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.c_int]
+            lib.FcDefaultSubstitute.argtypes=[ctypes.c_void_p]
+            lib.FcFontMatch.argtypes=[ctypes.c_void_p,ctypes.c_void_p,ctypes.POINTER(ctypes.c_int)];lib.FcFontMatch.restype=ctypes.c_void_p
+            lib.FcPatternGetString.argtypes=[ctypes.c_void_p,ctypes.c_char_p,ctypes.c_int,ctypes.POINTER(ctypes.c_char_p)]
+            lib.FcPatternDestroy.argtypes=[ctypes.c_void_p]
+            pattern=lib.FcNameParse(str(family).encode('utf-8'))
+            if not pattern:return None
+            match=None
+            try:
+                lib.FcConfigSubstitute(None,pattern,0);lib.FcDefaultSubstitute(pattern);result=ctypes.c_int();match=lib.FcFontMatch(None,pattern,ctypes.byref(result))
+                file=ctypes.c_char_p()
+                if match and lib.FcPatternGetString(match,b'file',0,ctypes.byref(file))==0 and file.value:return os.fsdecode(file.value)
+            finally:
+                if match:lib.FcPatternDestroy(match)
+                lib.FcPatternDestroy(pattern)
+        except (OSError,AttributeError):pass
+    return None
+
+def normalize_font_preferences(settings):
+    old=str(settings.get('font_family',''))
+    if settings.get('korean_font') not in KOREAN_FONT_CHOICES:
+        settings['korean_font']='굴림' if old in FONT_ALIASES['굴림'] else '맑은고딕'
+    if settings.get('english_font') not in ENGLISH_FONT_CHOICES:
+        settings['english_font']='Calibri' if old.casefold()=='calibri' else 'Arial'
+    try:settings['font_size']=max(8,min(24,int(settings.get('font_size',11))))
+    except (ValueError,TypeError):settings['font_size']=11
+    return settings
+
+def resolve_font_choices(settings,families):
+    normalize_font_preferences(settings)
+    def key(s):return unicodedata.normalize('NFC',str(s)).casefold().replace(' ','').replace('-','')
+    installed={key(s):s for s in families}
+    def lookup(names):return next((installed[key(n)] for n in names if key(n) in installed),None)
+    ko_req=settings['korean_font'];en_req=settings['english_font']
+    ko=lookup(FONT_ALIASES[ko_req]);en=lookup(FONT_ALIASES[en_req]);notes=[]
+    if not ko:
+        ko=lookup(('NanumGothic','Nanum Gothic','Noto Sans CJK KR','Noto Sans KR','UnDotum'))
+        if ko:notes.append(f'{ko_req} 미설치 → {ko}')
+        else:
+            ko=lookup(('Noto Sans CJK JP','Noto Sans CJK SC')) or 'TkDefaultFont'
+            notes.append('한글 글꼴 확인 필요: 번들 fonts 폴더 또는 한글 TTF를 함께 설치하세요.')
+    if not en:
+        en=lookup(('Carlito','Liberation Sans','DejaVu Sans','Helvetica')) or 'TkDefaultFont'
+        notes.append(f'{en_req} 미설치 → {en}')
+    return {'korean':ko,'english':en,'notes':notes}
+
+class AppFonts:
+    def __init__(self,root,settings):
+        self.root=root;self.signature=None;self.named={};self.update(settings)
+    def update(self,settings):
+        resolved=resolve_font_choices(settings,tkfont.families(self.root));self.resolved=resolved
+        size=int(settings['font_size']);sig=(resolved['korean'],resolved['english'],size)
+        settings['font_family']=resolved['korean'] # compatible with old project consumers
+        if sig==self.signature:return
+        self.signature=sig
+        specs={'ui':(resolved['korean'],size,'normal'),'heading':(resolved['korean'],size+2,'bold'),
+               'small':(resolved['korean'],9,'normal'),'english':(resolved['english'],size,'normal'),
+               'english_bold':(resolved['english'],size,'bold')}
+        for name,(family,point_size,weight) in specs.items():
+            if family=='TkDefaultFont':family=tkfont.nametofont('TkDefaultFont').actual('family')
+            if name not in self.named:self.named[name]=tkfont.Font(root=self.root,family=family,size=point_size,weight=weight)
+            else:self.named[name].configure(family=family,size=point_size,weight=weight)
+        for name in ('TkDefaultFont','TkMenuFont','TkHeadingFont','TkCaptionFont','TkTooltipFont'):
+            try:tkfont.nametofont(name).configure(family=self.named['ui'].actual('family'),size=size)
+            except tk.TclError:pass
+        for name in ('TkTextFont','TkFixedFont'):
+            try:tkfont.nametofont(name).configure(family=self.named['english'].actual('family'),size=size)
+            except tk.TclError:pass
+    def for_text(self,text,bold=False):
+        return self.named['heading' if bold and HANGUL_RE.search(str(text)) else 'ui' if HANGUL_RE.search(str(text)) else 'english_bold' if bold else 'english']
+    def style_text(self,widget):
+        if not widget.winfo_exists():return
+        widget.configure(font=self.named['english']);widget.tag_configure('tinoxo_hangul',font=self.named['ui'])
+        widget.tag_remove('tinoxo_hangul','1.0','end')
+        for m in HANGUL_RE.finditer(widget.get('1.0','end-1c')):
+            widget.tag_add('tinoxo_hangul',f'1.0+{m.start()}c',f'1.0+{m.end()}c')
+    def apply_widgets(self,parent):
+        for widget in parent.winfo_children():
+            try:
+                if isinstance(widget,tk.Menu):
+                    widget.configure(font=self.named['ui'])
+                    for i in range((widget.index('end') or 0)+1):
+                        if widget.type(i) not in ('separator','tearoff'):widget.entryconfigure(i,font=self.for_text(widget.entrycget(i,'label')))
+                elif isinstance(widget,(ttk.Entry,ttk.Combobox,tk.Entry)):
+                    widget.configure(font=self.for_text(widget.get()))
+                    if not getattr(widget,'_tinoxo_font_hook',False):
+                        def refresh_font(event,w=widget):
+                            if w.winfo_exists():w.configure(font=self.for_text(w.get()))
+                        widget.bind('<KeyRelease>',refresh_font,add='+')
+                        widget.bind('<<ComboboxSelected>>',refresh_font,add='+')
+                        widget._tinoxo_font_hook=True
+                elif isinstance(widget,tk.Text):self.style_text(widget)
+            except tk.TclError:pass
+            self.apply_widgets(widget)
+
 # ----------------------- Native Tk/X11 software renderer ----------------------
 # Tkinter is imported only for GUI launch; chemistry and export work without DISPLAY.
 def shade(color,amount):
     rgb=[int(color[i:i+2],16) for i in (1,3,5)]
     return '#'+''.join(f'{max(0,min(255,round(v+(255-v)*amount if amount>=0 else v*(1+amount)))):02x}' for v in rgb)
 
-def scene_primitives(p,selection,settings,width,height,rotation=None,zoom=1.,pan=(0,0),show_h=True,labels=True,core_only=False):
-    rotation=np.eye(3) if rotation is None else rotation
-    aa=[a for a in p['atoms'] if (show_h or a['element']!='H') and (not core_only or a.get('core'))]
-    if not aa:return [],{}
-    coords=np.array([xyz(a) for a in aa]);center=coords.mean(0);rot=(coords-center)@rotation.T
-    extent=max(np.ptp(rot[:,0]),np.ptp(rot[:,1]),4.)
-    scale=min(width,height)*.72/extent*zoom
-    projected={};aidx=index_atoms(p);selected=set(selection)
-    for a,r in zip(aa,rot):
-        rr=scale*min(.7,max(.22,radius(a['element'])*.40))
-        projected[a['id']]=(width/2+r[0]*scale+pan[0],height/2-r[1]*scale+pan[1],r[2],max(2.8,rr))
-    layers=[]
-    for b in p['bonds']:
-        if b['a'] not in projected or b['b'] not in projected:continue
-        u=np.array(projected[b['a']][:2]);v=np.array(projected[b['b']][:2]);dv=v-u;d=np.linalg.norm(dv)
-        if d<.1:continue
-        normal=np.array([-dv[1],dv[0]])/d
-        co=[aidx[b[k]].get('color',settings['element_colors'].get(aidx[b[k]]['element'],'#808080')) for k in ('a','b')]
-        order=b.get('order',1.);offsets=[0.] if order in (0.,1.) else [-3.,3.] if order in (1.5,2.) else [-4.5,0.,4.5]
-        for line_no,off in enumerate(offsets):
-            dashed=b.get('kind')=='coordinate' or b.get('resonance') is not None and line_no>0 or order==1.5 and line_no>0
-            for k in range(6):
-                t0=k/6;t1=(k+1)/6;start=u+dv*t0+normal*off;end=u+dv*t1+normal*off
-                depth=projected[b['a']][2]*(1-(t0+t1)/2)+projected[b['b']][2]*(t0+t1)/2
-                layers.append((depth,0,{'kind':'line','xy':[*start,*end],'color':co[0 if k<3 else 1],
-                    'width':max(2.,min(8.,scale*.105)),'dash':dashed}))
-    label_color=settings.get('text_colors',{}).get('label','#d9e9ff' if settings['theme']=='dark' else '#183149')
-    for a in aa:
-        x,y,z,r=projected[a['id']];color=a.get('color',settings['element_colors'].get(a['element'],'#808080'))
-        if a['id'] in selected:
-            layers.append((z,1,{'kind':'circle','xy':[x-r-5,y-r-5,x+r+5,y+r+5],'fill':settings['selection'],'outline':settings['selection'],'width':2}))
-        layers.append((z,2,{'kind':'circle','xy':[x-r,y-r,x+r,y+r],'fill':color,'outline':shade(color,-.55),'width':1}))
-        layers.append((z,3,{'kind':'circle','xy':[x-r*.60,y-r*.70,x-r*.08,y-r*.18],'fill':shade(color,.40),'outline':'','width':0}))
-        if labels or a['id'] in selected:
-            text=a['element']+str(a['id'])+(f' [{selection.index(a["id"])+1}]' if a['id'] in selected else '')
-            layers.append((z,4,{'kind':'text','xy':[x,y+r+10],'text':text,'color':settings['selection'] if a['id'] in selected else label_color,
-                'size':settings['font_size'],'bold':a['id'] in selected}))
-    return [p for z,k,p in sorted(layers,key=lambda r:(r[0],r[1]))],projected
+def camera_frame(project,width,height):
+    """A rotation-invariant fit. Only explicit Fit changes stored pixel/Angstrom."""
+    if not project['atoms']:return np.zeros(3),min(width,height)*.2
+    points=np.array([xyz(a) for a in project['atoms']],dtype=float);center=points.mean(0)
+    bound=max(2.,float(np.max(np.linalg.norm(points-center,axis=1)))+.7)
+    return center,.82*min(width,height)/(2*bound)
+
+class PreparedScene:
+    """Static molecular geometry/styles are cached between camera-only frames."""
+    def __init__(self,p,selection,settings,show_h=True,labels=True,core_only=False):
+        self.project=p;self.settings=settings;self.labels=labels;self.selection=tuple(selection)
+        self.atoms=[a for a in p['atoms'] if (show_h or a['element']!='H') and (not core_only or a.get('core'))]
+        self.points=np.array([xyz(a) for a in self.atoms],dtype=float).reshape((-1,3))
+        self.ids=[a['id'] for a in self.atoms];self.id_index={aid:i for i,aid in enumerate(self.ids)}
+        self.radii=np.array([min(.7,max(.22,radius(a['element'])*.40)) for a in self.atoms])
+        rank={aid:i+1 for i,aid in enumerate(selection)};self.atom_styles=[]
+        fg=settings.get('text_colors',{}).get('label','#d9e9ff' if settings['theme']=='dark' else '#183149')
+        for a in self.atoms:
+            aid=a['id'];color=a.get('color',settings['element_colors'].get(a['element'],'#808080'))
+            self.atom_styles.append({'color':color,'outline':shade(color,-.55),'highlight':shade(color,.4),
+                'selected':aid in rank,'label':a['element']+str(aid)+(f' [{rank[aid]}]' if aid in rank else ''),
+                'label_color':settings['selection'] if aid in rank else fg})
+        self.line_templates={}
+        for segments in (2,6):
+            templates=[];ii=[];jj=[];starts=[];ends=[];offsets=[]
+            for b in p['bonds']:
+                if b['a'] not in self.id_index or b['b'] not in self.id_index:continue
+                i,j=self.id_index[b['a']],self.id_index[b['b']];order=b.get('order',1.)
+                lane_offsets=[0.] if order in (0.,1.) else [-3.,3.] if order in (1.5,2.) else [-4.5,0.,4.5]
+                for lane,off in enumerate(lane_offsets):
+                    dashed=b.get('kind')=='coordinate' or bool(b.get('resonance')) and lane>0 or order==1.5 and lane>0
+                    for k in range(segments):
+                        ii.append(i);jj.append(j);starts.append(k/segments);ends.append((k+1)/segments);offsets.append(off)
+                        templates.append({'kind':'line','key':('bond',b['a'],b['b'],lane,k),
+                            'color':self.atom_styles[i if k<segments/2 else j]['color'],'dash':dashed})
+            self.line_templates[segments]=(templates,np.array(ii,dtype=int),np.array(jj,dtype=int),
+                np.array(starts),np.array(ends),np.array(offsets))
+    def project_frame(self,width,height,rotation,center,scale,pan=(0,0),interactive=False):
+        if not len(self.atoms):return [],{}
+        rot=(self.points-center)@rotation.T;xy=rot[:,:2]*np.array([scale,-scale])+np.array([width/2+pan[0],height/2+pan[1]])
+        radii=np.maximum(2.8,self.radii*scale);projected={aid:(float(r[0]),float(r[1]),float(z),float(rr)) for aid,r,z,rr in zip(self.ids,xy,rot[:,2],radii)}
+        layers=[];segments=2 if interactive else 6
+        templates,ii,jj,t0,t1,offset=self.line_templates[segments]
+        if len(ii):
+            u=xy[ii];v=xy[jj];delta=v-u;dist=np.maximum(np.linalg.norm(delta,axis=1),.01)
+            normal=np.column_stack((-delta[:,1],delta[:,0]))/dist[:,None]*offset[:,None]
+            starts=u+delta*t0[:,None]+normal;ends=u+delta*t1[:,None]+normal
+            depths=rot[ii,2]*(1-(t0+t1)*.5)+rot[jj,2]*(t0+t1)*.5
+            width_=max(2.,min(8.,scale*.105))
+            for st,u_,v_,z in zip(templates,starts,ends,depths):layers.append((float(z),{**st,'xy':[*u_,*v_],'width':width_}))
+        for aid,(x,y),z,r,st in zip(self.ids,xy,rot[:,2],radii,self.atom_styles):
+            if st['selected']:layers.append((float(z),{'kind':'circle','key':('atom',aid,'selection'),'xy':[x-r-5,y-r-5,x+r+5,y+r+5],'fill':self.settings['selection'],'outline':self.settings['selection'],'width':2}))
+            layers.append((float(z),{'kind':'circle','key':('atom',aid,'body'),'xy':[x-r,y-r,x+r,y+r],'fill':st['color'],'outline':st['outline'],'width':1}))
+            if not interactive:layers.append((float(z),{'kind':'circle','key':('atom',aid,'highlight'),'xy':[x-r*.60,y-r*.70,x-r*.08,y-r*.18],'fill':st['highlight'],'outline':'','width':0}))
+            if st['selected'] or self.labels and (not interactive or len(self.atoms)<120):
+                layers.append((float(z),{'kind':'text','key':('atom',aid,'label'),'xy':[x,y+r+10],'text':st['label'],'color':st['label_color'],'size':self.settings['font_size'],'bold':st['selected']}))
+        layers.sort(key=lambda item:item[0])
+        return [item for z,item in layers],projected
+
+def scene_primitives(p,selection,settings,width,height,rotation=None,zoom=1.,pan=(0,0),show_h=True,labels=True,core_only=False,
+                     pixels_per_angstrom=None,view_center=None,interactive=False):
+    center,base=camera_frame(p,width,height)
+    if view_center is not None:center=np.asarray(view_center,dtype=float)
+    if pixels_per_angstrom is not None:base=float(pixels_per_angstrom)
+    return PreparedScene(p,selection,settings,show_h,labels,core_only).project_frame(width,height,np.eye(3) if rotation is None else rotation,center,base*zoom,pan,interactive)
+
+class RetainedCanvas:
+    """Reuse items and batch coords/style/depth updates in a single Tcl call."""
+    def __init__(self,canvas):
+        self.canvas=canvas;self.items={};self.active=set();self.styles={};self.created=0
+        canvas.tk.eval('proc ::tinoxo_canvas_batch {commands} {set result {}; foreach command $commands {lappend result [uplevel #0 $command]}; return $result}')
+    def reset(self):
+        self.canvas.delete('molecule');self.items.clear();self.active.clear();self.styles.clear()
+    def sync(self,primitives,fonts):
+        c=self.canvas;missing=[];create=[];options={}
+        for p in primitives:
+            key=p['key'];kind=p['kind']
+            if kind=='line':opts={'fill':p['color'],'width':p['width'],'dash':(5,4) if p.get('dash') else (), 'capstyle':'round'};typ='line'
+            elif kind=='circle':opts={'fill':p['fill'],'outline':p.get('outline',''),'width':p.get('width',1)};typ='oval'
+            else:opts={'text':p['text'],'fill':p['color'],'font':str(fonts.named['english_bold' if p.get('bold') else 'english'])};typ='text'
+            options[key]=opts
+            if key not in self.items:
+                missing.append(key);create.append((str(c),'create',typ,*p['xy'],'-tags',('molecule',),*[arg for k,v in opts.items() for arg in ('-'+k,v)]))
+        if create:
+            ids=c.tk.call('::tinoxo_canvas_batch',tuple(create))
+            for key,item_id in zip(missing,ids):self.items[key]=int(item_id);self.styles[key]=options[key]
+            self.created+=len(missing)
+        current={p['key'] for p in primitives};commands=[]
+        for key in self.active-current:commands.append((str(c),'itemconfigure',self.items[key],'-state','hidden'))
+        for p in primitives:
+            key=p['key'];iid=self.items[key];opts=options[key];changed={k:v for k,v in opts.items() if self.styles.get(key,{}).get(k)!=v}
+            if key not in self.active:changed['state']='normal'
+            if changed:commands.append((str(c),'itemconfigure',iid,*[arg for k,v in changed.items() for arg in ('-'+k,v)]))
+            commands.append((str(c),'coords',iid,*p['xy']));commands.append((str(c),'raise',iid));self.styles[key]=opts
+        if commands:c.tk.call('::tinoxo_canvas_batch',tuple(commands))
+        self.active=current
 
 
 def scene_svg(prims,width,height,bg,font='sans-serif'):
@@ -959,8 +1167,9 @@ def scene_svg(prims,width,height,bg,font='sans-serif'):
     return '\n'.join(out+['</svg>'])
 
 
-def scene_png(prims,width,height,bg,scale=2):
+def scene_png(prims,width,height,bg,scale=2,font_family=None):
     im=Image.new('RGB',(int(width*scale),int(height*scale)),bg);draw=ImageDraw.Draw(im)
+    face=font_file_for_family(font_family) if font_family else None;image_fonts={}
     for p in prims:
         coords=[v*scale for v in p['xy']]
         if p['kind']=='line':
@@ -973,8 +1182,11 @@ def scene_png(prims,width,height,bg,scale=2):
             else:draw.line(coords,fill=p['color'],width=max(1,round(p['width']*scale)))
         elif p['kind']=='circle':draw.ellipse(coords,fill=p['fill'],outline=p.get('outline') or None,width=max(1,round(p.get('width',1)*scale)))
         else:
-            try:font=ImageFont.truetype('DejaVuSans-Bold.ttf' if p.get('bold') else 'DejaVuSans.ttf',max(8,round(p['size']*1.3*scale)))
-            except OSError:font=ImageFont.load_default()
+            key=(p['size'],p.get('bold',False))
+            if key not in image_fonts:
+                try:image_fonts[key]=ImageFont.truetype(face or ('DejaVuSans-Bold.ttf' if p.get('bold') else 'DejaVuSans.ttf'),max(8,round(p['size']*1.3*scale)))
+                except OSError:image_fonts[key]=ImageFont.load_default()
+            font=image_fonts[key]
             draw.text(tuple(coords),p['text'],fill=p['color'],font=font,anchor='mm')
     return im
 
@@ -984,62 +1196,107 @@ def import_tk():
     import tkinter as tk
     from tkinter import ttk,filedialog,messagebox,simpledialog,colorchooser
     import tkinter.font as tkfont
+    register_local_fonts()
 
 
 class MoleculeView:
     def __init__(self,app,parent):
         self.app=app;self.canvas=tk.Canvas(parent,highlightthickness=0,takefocus=True)
-        self.canvas.pack(fill='both',expand=True);self.rotation=axis_rotation((1,.5,0),.35);self.zoom=1.;self.pan=np.zeros(2);self.projected={};self.primitives=[];self.last=None;self.start=None;self.box=None;self.moved=False
-        for event,fn in [('<Configure>',lambda e:self.draw()),('<ButtonPress-1>',self.press),('<B1-Motion>',self.drag),('<ButtonRelease-1>',self.release),
-            ('<ButtonPress-3>',self.pan_start),('<B3-Motion>',self.pan_drag),('<Button-4>',lambda e:self.wheel(1.12)),('<Button-5>',lambda e:self.wheel(1/1.12)),
+        self.canvas.pack(fill='both',expand=True);self.rotation=axis_rotation((1,.5,0),.35);self.zoom=1.;self.pan=np.zeros(2)
+        self.projected={};self.primitives=[];self.last=None;self.start=None;self.box=None;self.moved=False;self.dragging=False
+        self.pending=None;self.last_frame=0.;self.scene=None;self.scene_dirty=True;self.fit_pending=True;self.camera_ready=False;self.pixels_per_angstrom=1.;self.center=np.zeros(3)
+        self.renderer=RetainedCanvas(self.canvas);self.topology=None;self.render_stats={'frames':0,'last_ms':0.,'created':0}
+        self.hud_title=self.canvas.create_text(14,15,anchor='nw',tags=('hud',))
+        self.hud_hint=self.canvas.create_text(14,15,anchor='sw',tags=('hud',));self.hud_cache={}
+        for event,fn in [('<Configure>',lambda e:self.request_redraw()),('<ButtonPress-1>',self.press),('<B1-Motion>',self.drag),('<ButtonRelease-1>',self.release),
+            ('<ButtonPress-3>',self.pan_start),('<B3-Motion>',self.pan_drag),('<ButtonRelease-3>',self.pan_end),
+            ('<Button-4>',lambda e:self.wheel(1.12)),('<Button-5>',lambda e:self.wheel(1/1.12)),
             ('<MouseWheel>',lambda e:self.wheel(1.12 if e.delta>0 else 1/1.12))]:self.canvas.bind(event,fn)
-    def fit(self):self.zoom=1.;self.pan[:]=0;self.draw()
-    def wheel(self,f):self.zoom=min(12,max(.08,self.zoom*f));self.draw()
-    def pan_start(self,e):self.last=np.array([e.x,e.y])
+        self.canvas.bind('<Destroy>',self.on_destroy,add='+')
+    def on_destroy(self,e):
+        if e.widget is self.canvas and self.pending:
+            try:self.canvas.after_cancel(self.pending)
+            except tk.TclError:pass
+            self.pending=None
+    def fit(self):
+        self.zoom=1.;self.pan[:]=0;self.fit_pending=True;self.request_redraw(final=True)
+    def wheel(self,f):
+        self.zoom=min(12,max(.08,self.zoom*f));self.request_redraw()
+    def pan_start(self,e):self.last=np.array([e.x,e.y]);self.dragging=True
     def pan_drag(self,e):
-        pos=np.array([e.x,e.y]);self.pan+=pos-self.last;self.last=pos;self.draw()
+        if self.last is None:return
+        pos=np.array([e.x,e.y]);self.pan+=pos-self.last;self.last=pos;self.request_redraw()
+    def pan_end(self,e):self.dragging=False;self.last=None;self.request_redraw(final=True)
     def press(self,e):
         self.canvas.focus_set();self.start=(e.x,e.y);self.last=np.array(self.start);self.moved=False
         self.box_mode=self.app.selection_mode.get()=='box' and not e.state&0x0008
     def drag(self,e):
         if self.last is None:return
-        delta=np.array([e.x,e.y])-self.last;self.last=np.array([e.x,e.y])
-        self.moved|=math.hypot(e.x-self.start[0],e.y-self.start[1])>4
+        delta=np.array([e.x,e.y])-self.last;self.last=np.array([e.x,e.y]);self.moved|=math.hypot(e.x-self.start[0],e.y-self.start[1])>4
         if self.box_mode:
-            if self.box:self.canvas.delete(self.box)
-            self.box=self.canvas.create_rectangle(*self.start,e.x,e.y,outline=self.app.settings['selection'],width=2,dash=(5,3))
+            if self.box:self.canvas.coords(self.box,*self.start,e.x,e.y)
+            else:self.box=self.canvas.create_rectangle(*self.start,e.x,e.y,outline=self.app.settings['selection'],width=2,dash=(5,3),tags=('box',))
         else:
-            self.rotation=axis_rotation((0,1,0),delta[0]*.012)@axis_rotation((1,0,0),delta[1]*.012)@self.rotation;self.draw()
+            self.dragging=True;self.rotation=axis_rotation((0,1,0),delta[0]*.012)@axis_rotation((1,0,0),delta[1]*.012)@self.rotation;self.request_redraw()
     def release(self,e):
         if self.start is None:return
         if self.box:self.canvas.delete(self.box);self.box=None
         if self.box_mode and self.moved:
-            x0,x1=sorted((self.start[0],e.x));y0,y1=sorted((self.start[1],e.y))
+            self.render_now();x0,x1=sorted((self.start[0],e.x));y0,y1=sorted((self.start[1],e.y))
             ids=[i for i,(x,y,z,r) in self.projected.items() if x0<=x<=x1 and y0<=y<=y1]
             self.app.select(list(dict.fromkeys(self.app.selection+ids)) if e.state&1 else ids)
         elif not self.moved:
+            if self.pending:self.render_now()
             choices=[(z,i) for i,(x,y,z,r) in self.projected.items() if math.hypot(e.x-x,e.y-y)<=r+5]
             if choices:
                 i=max(choices)[1];multi=self.app.selection_mode.get()!='single' or e.state&1
                 ids=([j for j in self.app.selection if j!=i] if i in self.app.selection else self.app.selection+[i]) if multi else [i]
                 self.app.select(ids)
             elif not e.state&1:self.app.select([])
-        self.start=None;self.last=None
+        self.start=None;self.last=None;self.dragging=False;self.request_redraw(final=True)
     def draw(self):
-        if not hasattr(self.app,'project'):return
-        c=self.canvas;w=max(200,c.winfo_width());h=max(200,c.winfo_height());bg=self.app.palette['canvas'];c.configure(background=bg);c.delete('all')
-        self.primitives,self.projected=scene_primitives(self.app.project,self.app.selection,self.app.settings,w,h,self.rotation,self.zoom,self.pan,
-            self.app.show_h.get(),self.app.show_labels.get(),self.app.core_only.get())
-        for p in self.primitives:
-            if p['kind']=='line':c.create_line(*p['xy'],fill=p['color'],width=p['width'],dash=(5,4) if p.get('dash') else (),capstyle=tk.ROUND)
-            elif p['kind']=='circle':c.create_oval(*p['xy'],fill=p['fill'],outline=p.get('outline',''),width=p.get('width',1))
-            else:c.create_text(*p['xy'],text=p['text'],fill=p['color'],font=(self.app.settings['font_family'],p['size'],'bold' if p.get('bold') else 'normal'))
-        c.create_text(14,15,anchor='nw',text=f"{self.app.project['title']}\n{len(self.app.project['atoms'])} atoms · {len(self.app.project['bonds'])} bonds · orthographic",fill=self.app.palette['muted'],font=(self.app.settings['font_family'],10))
-        c.create_text(14,h-13,anchor='sw',text='드래그: 회전  |  휠: 확대  |  우클릭 드래그: 이동  |  Shift: 추가 선택',fill=self.app.palette['muted'],font=(self.app.settings['font_family'],9))
+        # Public entry point: project, visibility, selection or appearance changed.
+        self.scene_dirty=True;self.request_redraw()
+    def request_redraw(self,final=False):
+        if not self.canvas.winfo_exists():return
+        if final and self.pending:
+            self.canvas.after_cancel(self.pending);self.pending=None
+        if self.pending is not None:return
+        fps=max(10,min(60,int(self.app.settings.get('viewer_fps',30))))
+        delay=0 if final or self.scene_dirty else max(0,math.ceil((1/fps-(time.perf_counter()-self.last_frame))*1000))
+        self.pending=self.canvas.after(delay,self._render_frame)
+    def render_now(self):
+        if self.pending:self.canvas.after_cancel(self.pending);self.pending=None
+        self._render_frame(force_quality=True)
+    def _render_frame(self,force_quality=False):
+        self.pending=None
+        if not self.canvas.winfo_exists():return
+        started=time.perf_counter();c=self.canvas;w=max(200,c.winfo_width());h=max(200,c.winfo_height())
+        if self.scene_dirty or self.scene is None:
+            p=self.app.project
+            topology=(tuple(a['id'] for a in p['atoms']),tuple((b['a'],b['b'],b.get('order'),b.get('kind')) for b in p['bonds']))
+            if topology!=self.topology:self.renderer.reset();self.topology=topology
+            self.scene=PreparedScene(p,self.app.selection,self.app.settings,self.app.show_h.get(),self.app.show_labels.get(),self.app.core_only.get());self.scene_dirty=False
+        if self.fit_pending or not self.camera_ready:
+            self.center,self.pixels_per_angstrom=camera_frame(self.app.project,w,h)
+            if c.winfo_width()>1 and c.winfo_height()>1:self.camera_ready=True;self.fit_pending=False
+        fast=self.dragging and self.app.settings.get('interaction_lod',True) and not force_quality
+        self.primitives,self.projected=self.scene.project_frame(w,h,self.rotation,self.center,self.pixels_per_angstrom*self.zoom,self.pan,interactive=fast)
+        bg=self.app.palette['canvas']
+        if c.cget('background')!=bg:c.configure(background=bg)
+        self.renderer.sync(self.primitives,self.app.fonts)
+        title=f"{self.app.project['title']}\n{len(self.app.project['atoms'])} atoms · {len(self.app.project['bonds'])} bonds · orthographic"
+        hints='드래그: 회전  |  휠: 확대  |  우클릭 드래그: 이동  |  Shift: 추가 선택'
+        for iid,text,pos,font in [(self.hud_title,title,(14,15),self.app.fonts.for_text(title)),(self.hud_hint,hints,(14,h-13),self.app.fonts.named['small'])]:
+            style=(text,self.app.palette['muted'],str(font),pos)
+            if self.hud_cache.get(iid)!=style:
+                c.coords(iid,*pos);c.itemconfigure(iid,text=text,fill=style[1],font=font);self.hud_cache[iid]=style
+        c.tag_raise('hud');c.tag_raise('box')
+        self.last_frame=time.perf_counter();self.render_stats={'frames':self.render_stats['frames']+1,'last_ms':(self.last_frame-started)*1000,'created':self.renderer.created,'visible_items':len(self.primitives)}
 
 class NativeApp:
     def __init__(self,root,initial=None,config_dir=None,recover_prompt=True):
-        self.root=root;self.root.title('Tin Oxo Studio 3.0 · Python / X11')
+        self.root=root;self.root.title('Tin Oxo Studio 3.1 · Python / X11')
         self.root.geometry(f'{min(1540,root.winfo_screenwidth()-40)}x{min(980,root.winfo_screenheight()-60)}');self.root.minsize(1040,680)
         self.config_dir=Path(config_dir or os.environ.get('TINOXO_CONFIG_DIR',Path.home()/'.config'/'tinoxo-studio')).expanduser()
         self.config_path=self.config_dir/'settings.json';self.autosave_path=self.config_dir/'recovery.json'
@@ -1047,22 +1304,33 @@ class NativeApp:
         self.bank={'version':2,'id':uuid.uuid4().hex,'revision':0,'activeId':None,'entries':[],'trash':[]};self.event_queue=queue.Queue();self.cancel_event=threading.Event();self.text_widgets=[]
         self.last_saved_signature=None;self.autosave_failed=False;self.scroll_canvases=[]
         try:
-            if self.config_path.exists():self.settings.update(json.loads(self.config_path.read_text()))
+            if self.config_path.exists():self.settings.update(normalize_font_preferences(json.loads(read_unicode_text(self.config_path))))
         except Exception:pass
         self.settings['element_colors']={**DEFAULT_ELEMENT_COLORS,**self.settings.get('element_colors',{})}
-        families=list(tkfont.families(root));preferred=next((f for f in ('Noto Sans CJK KR','Noto Sans CJK JP','Noto Sans KR','Malgun Gothic','NanumGothic') if f in families),None)
-        if preferred and self.settings['font_family']=='DejaVu Sans':self.settings['font_family']=preferred
+        register_local_fonts();normalize_font_preferences(self.settings);self.fonts=AppFonts(root,self.settings)
         self.selection_mode=tk.StringVar(value='multi');self.show_h=tk.BooleanVar(value=True);self.show_labels=tk.BooleanVar(value=False);self.core_only=tk.BooleanVar(value=False)
         self.ff_var=tk.StringVar(value=self.settings.get('ff','MMFF94'));self.scope_var=tk.StringVar(value='리간드 / 코어 고정');self.core_var=tk.StringVar(value='12');self.cleanup_var=tk.BooleanVar(value=True)
         self.status_var=tk.StringVar(value='준비됨 · 원자 선택 후 리간드를 추가하세요.');self.metrics_var=tk.StringVar();self.selection_var=tk.StringVar();self.busy_var=tk.StringVar(value='')
         self.build_ui();self.apply_theme();self.bind_keys();self.refresh()
-        self.root.protocol('WM_DELETE_WINDOW',self.close);self.root.after(100,self.poll_worker);self.root.after(30000,self.autosave)
+        if self.fonts.resolved['notes']:self.log('글꼴: '+' / '.join(self.fonts.resolved['notes']))
+        self.root.protocol('WM_DELETE_WINDOW',self.close)
+        self.poll_timer=self.root.after(100,self.poll_worker);self.autosave_timer=self.root.after(30000,self.autosave)
+        self.root.bind('<Destroy>',self.destroy_cleanup,add='+')
         if initial:self.safe(lambda:self.load_path(initial))
         elif recover_prompt and self.autosave_path.exists():self.root.after(250,self.offer_recovery)
     def safe(self,fn):
         try:return fn()
         except Exception as exc:
             self.status_var.set(str(exc));messagebox.showerror('Tin Oxo Studio',str(exc),parent=self.root)
+    def destroy_cleanup(self,event):
+        if event.widget is not self.root:return
+        for name in ('poll_timer','autosave_timer'):
+            timer=getattr(self,name,None)
+            if timer:
+                try:self.root.after_cancel(timer)
+                except tk.TclError:pass
+                setattr(self,name,None)
+        self.cancel_event.set()
     def call(self,fn):return lambda:self.safe(fn)
     def button(self,parent,text,fn,style=None,**kwargs):
         b=ttk.Button(parent,text=text,command=self.call(fn),style=style or 'TButton',**kwargs);b.pack(fill='x',pady=3);return b
@@ -1159,7 +1427,11 @@ class NativeApp:
         box=tk.Text(parent,height=height,wrap='none',undo=False,borderwidth=0,padx=8,pady=6)
         sy=ttk.Scrollbar(parent,orient='vertical',command=box.yview);sx=ttk.Scrollbar(parent,orient='horizontal',command=box.xview)
         sy.pack(side='right',fill='y');sx.pack(side='bottom',fill='x');box.pack(fill='both',expand=True);box.configure(yscrollcommand=sy.set,xscrollcommand=sx.set)
-        self.text_widgets.append(box);return box
+        self.text_widgets.append(box)
+        def bilingual_text(event):
+            if box.edit_modified():
+                self.fonts.style_text(box);box.edit_modified(False)
+        box.bind('<<Modified>>',bilingual_text);return box
     def scroll_frame(self,parent):
         outer=ttk.Frame(parent);canvas=tk.Canvas(outer,width=270,height=240,highlightthickness=0)
         bar=ttk.Scrollbar(outer,orient='vertical',command=canvas.yview);bar.pack(side='right',fill='y');canvas.pack(fill='both',expand=True);canvas.configure(yscrollcommand=bar.set)
@@ -1178,13 +1450,13 @@ class NativeApp:
         dark=self.settings['theme']=='dark';self.palette={'bg':'#111820' if dark else '#eaf0f5','panel':'#1a2532' if dark else '#ffffff',
             'canvas':'#0b111a' if dark else '#f6f9fc','fg':'#e0eaf5' if dark else '#192d41','muted':'#a3b6c9' if dark else '#506578',
             'accent':'#09bfd6' if dark else '#087a9a','entry':'#111b27' if dark else '#f4f7fb','danger':'#ff7588' if dark else '#bb2e48'}
-        p=self.palette;colors=self.settings.get('text_colors',{});font=(self.settings['font_family'],int(self.settings['font_size']))
+        p=self.palette;colors=self.settings.get('text_colors',{});self.fonts.update(self.settings);font=self.fonts.named['ui']
         self.root.configure(background=p['bg']);self.root.option_add('*Font',font)
         self.style=ttk.Style(self.root);self.style.theme_use('clam')
         self.style.configure('.',background=p['panel'],foreground=colors.get('body',p['fg']),font=font)
         for style in ('TFrame','TLabelframe','TNotebook','TNotebook.Tab','TPanedwindow'):self.style.configure(style,background=p['panel'])
         self.style.configure('TLabel',foreground=colors.get('body',p['fg']))
-        self.style.configure('Heading.TLabel',font=(font[0],font[1]+2,'bold'),foreground=colors.get('heading',p['fg']))
+        self.style.configure('Heading.TLabel',font=self.fonts.named['heading'],foreground=colors.get('heading',p['fg']))
         self.style.configure('Muted.TLabel',foreground=colors.get('muted',p['muted']))
         self.style.configure('Status.TLabel',foreground=colors.get('status',p['accent']))
         self.style.configure('TButton',padding=(8,6),background=p['panel'],foreground=colors.get('button',p['fg']),bordercolor=shade(p['panel'],.15))
@@ -1194,15 +1466,16 @@ class NativeApp:
         for s in ('TEntry','TCombobox','TSpinbox'):
             self.style.configure(s,fieldbackground=p['entry'],foreground=colors.get('input',p['fg']),insertcolor=p['fg'],selectbackground='#08778c')
             self.style.map(s,fieldbackground=[('readonly',p['entry'])],foreground=[('readonly',colors.get('input',p['fg']))])
-        self.style.configure('Treeview',background=p['entry'],fieldbackground=p['entry'],foreground=p['fg'],rowheight=int(font[1]*2.3),borderwidth=0)
+        self.style.configure('Treeview',background=p['entry'],fieldbackground=p['entry'],foreground=p['fg'],rowheight=int(self.settings['font_size']*2.3),borderwidth=0)
         self.style.map('Treeview',background=[('selected','#075c7c')],foreground=[('selected','#ffffff')])
-        self.style.configure('Treeview.Heading',background=p['panel'],foreground=p['muted'],font=(font[0],font[1],'bold'))
+        self.style.configure('Treeview.Heading',background=p['panel'],foreground=p['muted'],font=self.fonts.named['heading'])
         self.style.map('TNotebook.Tab',background=[('selected',p['entry'])],foreground=[('selected',p['accent'])])
         self.root.option_add('*TCombobox*Listbox.background',p['entry']);self.root.option_add('*TCombobox*Listbox.foreground',p['fg'])
         for widget in self.text_widgets:
-            if widget.winfo_exists():widget.configure(bg=p['entry'],fg=colors.get('input',p['fg']),insertbackground=p['fg'],font=(font[0],font[1]))
+            if widget.winfo_exists():widget.configure(bg=p['entry'],fg=colors.get('input',p['fg']),insertbackground=p['fg'],font=self.fonts.named['english'])
         for canvas in self.scroll_canvases:
             if canvas.winfo_exists():canvas.configure(bg=p['panel'])
+        self.fonts.apply_widgets(self.root)
         if hasattr(self,'view'):self.view.draw()
     def toggle_theme(self):self.settings['theme']='light' if self.settings['theme']=='dark' else 'dark';self.apply_theme();self.save_settings()
     def bind_keys(self):
@@ -1235,7 +1508,7 @@ class NativeApp:
         charge=self.project['metadata'].get('totalCharge');qs='미지정' if charge is None else str(charge)+' (사용자 확인)'
         self.metrics_var.set(f"{formula(self.project)}  ·  원자 {len(self.project['atoms'])}  ·  결합 {len(self.project['bonds'])}  ·  채운 자리 {sum(bool(s.get('smiles')) for s in self.project['slots'])}  ·  전하 {qs}")
         self.core_note.configure(text=self.project['metadata'].get('status','사용자 구조')+'\n'+self.project['metadata'].get('coordinateNote','좌표 단위 Å'))
-        self.root.title(('● ' if self.dirty else '')+'Tin Oxo Studio 3.0 — '+self.project['title'])
+        self.root.title(('● ' if self.dirty else '')+'Tin Oxo Studio 3.1 — '+self.project['title'])
         self.refresh_contacts();self.view.draw()
     def select(self,ids):
         a=index_atoms(self.project);self.selection=list(dict.fromkeys(i for i in ids if i in a))
@@ -1335,7 +1608,7 @@ class NativeApp:
                     self.busy=False;self.busy_var.set('');self.log(data[0]);self.log_text.insert('end',data[1]+'\n')
                     if not self.cancel_event.is_set():messagebox.showerror(self.task_name,data[0],parent=self.root)
         except queue.Empty:pass
-        self.root.after(100,self.poll_worker)
+        self.poll_timer=self.root.after(100,self.poll_worker)
     def optimize(self):
         base=clone(self.project);ff=self.ff_var.get();scope='all' if self.scope_var.get().startswith('전체') else 'ligands';self.settings['ff']=ff
         def task(cancel,progress):return optimize_project(base,ff,scope,cancel=cancel,progress=progress)
@@ -1383,14 +1656,14 @@ class NativeApp:
         p,bank,settings=read_structure(path);self.snapshot();self.project=p;self.selection=[]
         if bank:self.bank=bank
         if settings:
-            self.settings.update(settings);self.settings['element_colors']={**DEFAULT_ELEMENT_COLORS,**self.settings.get('element_colors',{})};self.apply_theme()
+            self.settings.update(normalize_font_preferences(settings));self.settings['element_colors']={**DEFAULT_ELEMENT_COLORS,**self.settings.get('element_colors',{})};self.apply_theme()
         self.path=str(path) if Path(path).suffix=='.json' else None;self.settings['last_directory']=str(Path(path).parent);self.changed(True);self.log('불러옴: '+str(path))
     def autosave(self):
         if self.dirty and not self.busy:
             try:atomic_write(self.autosave_path,json.dumps(self.workspace_data(),ensure_ascii=False));self.autosave_failed=False
             except OSError as exc:
                 if not self.autosave_failed:self.log('임시 백업 저장 실패: '+str(exc));self.autosave_failed=True
-        self.root.after(30000,self.autosave)
+        self.autosave_timer=self.root.after(30000,self.autosave)
     def offer_recovery(self):
         if messagebox.askyesno('임시 작업 복구','이전 임시 작업이 있습니다. 복구하시겠습니까?',parent=self.root):self.safe(lambda:self.load_path(self.autosave_path))
     def close(self):
@@ -1734,15 +2007,45 @@ class NativeApp:
             self.changed()
     def appearance_dialog(self):
         win=self.dialog('화면 설정 · 글꼴 / 다크모드 / VESTA 원소 색상','950x760');outer=self.frame(win);outer.pack(fill='both',expand=True)
-        nb=ttk.Notebook(outer);nb.pack(fill='both',expand=True);general=self.frame(nb);elements=self.frame(nb);nb.add(general,text='글꼴 / 화면');nb.add(elements,text='원소별 색상')
-        before=clone(self.settings);font=tk.StringVar(value=self.settings['font_family']);size=tk.StringVar(value=str(self.settings['font_size']));theme=tk.StringVar(value=self.settings['theme'])
-        for text,var,values in [('글꼴',font,sorted(set(tkfont.families(self.root)))),('크기 pt',size,[str(i) for i in range(8,23)]),('모드',theme,['dark','light'])]:
-            self.label(general,text);ttk.Combobox(general,textvariable=var,values=values).pack(fill='x',pady=4)
+        nb=ttk.Notebook(outer);nb.pack(fill='both',expand=True);general_outer,general=self.scroll_frame(nb);elements=self.frame(nb);nb.add(general_outer,text='글꼴 / 화면');nb.add(elements,text='원소별 색상')
+        before=clone(self.settings);font=tk.StringVar(value=self.settings['korean_font']);latin=tk.StringVar(value=self.settings['english_font'])
+        size=tk.StringVar(value=str(self.settings['font_size']));theme=tk.StringVar(value=self.settings['theme']);font_status=tk.StringVar()
+        for text,var,values in [('한글 글꼴',font,KOREAN_FONT_CHOICES),('영문 글꼴',latin,ENGLISH_FONT_CHOICES),
+                                ('크기 pt',size,[str(i) for i in range(8,25)]),('모드',theme,['dark','light'])]:
+            self.label(general,text);ttk.Combobox(general,textvariable=var,values=values,state='readonly').pack(fill='x',pady=4)
+        def update_status():
+            resolved=resolve_font_choices({'korean_font':font.get(),'english_font':latin.get(),'font_size':self.settings['font_size']},tkfont.families(self.root))
+            font_status.set(f"표시 글꼴: 한글 {resolved['korean']} / 영문 {resolved['english']}\n"+' / '.join(resolved['notes']))
         def update_font():
             v=int(size.get())
             if not 8<=v<=24:raise ValueError('글꼴 크기는 8–24 pt 범위입니다.')
-            self.settings.update(font_family=font.get(),font_size=v,theme=theme.get());self.apply_theme()
+            if font.get() not in KOREAN_FONT_CHOICES or latin.get() not in ENGLISH_FONT_CHOICES:raise ValueError('제공된 한글/영문 글꼴 중에서 선택하세요.')
+            self.settings.update(korean_font=font.get(),english_font=latin.get(),font_size=v,theme=theme.get());self.apply_theme();update_status()
+        for variable in (font,latin):variable.trace_add('write',lambda *_:update_status())
+        ttk.Label(general,textvariable=font_status,wraplength=800,style='Status.TLabel').pack(fill='x',pady=6)
+        ttk.Label(general,text='한글 예문: 맑은고딕 · 굴림 · 주석 · 결합길이',font=self.fonts.named['ui']).pack(anchor='w',pady=3)
+        ttk.Label(general,text='English: Arial / Calibri · Sn12 O20 · 1.234 A',font=self.fonts.named['english']).pack(anchor='w',pady=3)
         self.button(general,'글꼴 / 모드 미리보기',update_font)
+        def add_fonts():
+            paths=filedialog.askopenfilenames(parent=win,title='HPC에 복사한 글꼴 파일 선택',filetypes=[('Fonts','*.ttf *.ttc *.otf'),('All files','*')])
+            if not paths:return
+            destination=Path.home()/'.local/share/fonts/tinoxo-studio';destination.mkdir(parents=True,exist_ok=True)
+            for raw in paths:
+                src=Path(raw)
+                if src.suffix.lower() not in ('.ttf','.ttc','.otf'):raise ValueError('TTF/TTC/OTF 글꼴 파일을 선택하세요.')
+                dst=destination/src.name
+                if src.resolve()!=dst.resolve():shutil.copy2(src,dst)
+            result=register_local_fonts();self.apply_theme();update_status()
+            self.log(f'글꼴 파일 {len(paths)}개 추가. '+' / '.join(result['errors']))
+        self.button(general,'글꼴 파일 추가 (TTF / TTC / OTF)',add_fonts)
+        self.label(general,'정확한 맑은고딕·굴림·Arial·Calibri 표시에는 해당 파일이 HPC에도 있어야 합니다. 파일이 없으면 번들 나눔고딕/Carlito로 안전하게 대체하고 위에 표시합니다. 혼합 UI 문구는 한글 글꼴을 사용하고, 영문 입력·좌표·3D 원자명은 영문 글꼴을 사용합니다.','Muted.TLabel',800)
+        update_status()
+        self.label(general,'뷰어 반응 속도','Heading.TLabel')
+        fps=tk.StringVar(value=str(self.settings.get('viewer_fps',30)));lod=tk.BooleanVar(value=self.settings.get('interaction_lod',True))
+        ttk.Combobox(general,textvariable=fps,values=['15','20','30','60'],state='readonly').pack(anchor='w',pady=3)
+        ttk.Checkbutton(general,text='회전 / 이동 중 경량 표시 (권장)',variable=lod).pack(anchor='w',pady=3)
+        def apply_viewer():self.settings.update(viewer_fps=int(fps.get()),interaction_lod=lod.get());self.view.draw()
+        self.button(general,'뷰어 설정 적용',apply_viewer)
         color_names={'body':'본문','heading':'제목','muted':'설명','button':'버튼','input':'입력값','status':'상태','warning':'경고','label':'3D 라벨'}
         color_grid=ttk.Frame(general);color_grid.pack(fill='x',pady=8)
         def pick_color(key):
@@ -1767,7 +2070,7 @@ class NativeApp:
             path=filedialog.askopenfilename(parent=win,title='HPC의 VESTA elements.ini 선택',filetypes=[('VESTA element colors','*.ini'),('All files','*')])
             if not path:return
             count=0
-            for line in Path(path).read_text(errors='replace').splitlines():
+            for line in read_unicode_text(path).splitlines():
                 tokens=line.split()
                 if len(tokens)<8:continue
                 symbol=tokens[1]
@@ -1780,7 +2083,7 @@ class NativeApp:
         self.button(elements,'VESTA elements.ini 가져오기',import_vesta)
         self.label(elements,'VESTA 3.5.8에 정의된 색상과 XX 기본값을 사용합니다. 정의가 없는 초중원소는 XX 회색이며 모든 원소의 색상을 지정할 수 있습니다.','Muted.TLabel',850)
         applied=[False]
-        def apply():update_font();applied[0]=True;self.save_settings();win.destroy()
+        def apply():update_font();apply_viewer();applied[0]=True;self.save_settings();win.destroy()
         def cancel():
             if not applied[0]:self.settings=before;self.apply_theme()
             win.destroy()
@@ -1843,18 +2146,19 @@ class NativeApp:
             ('PNG · 현재 3D 투영 / 2배 해상도','.png','png'),('SVG · 현재 3D 투영 벡터','.svg','svg'),('검사 보고서 JSON','.report.json','report'),
             ('호환 HTML · 기존 웹 편집기 + 프로젝트','.html','html'),('전체 프로젝트 JSON','.tinoxo.json','project')]
         def write(kind,ext):
+            self.view.render_now()
             path=filedialog.asksaveasfilename(parent=win,title='HPC 경로에 저장',initialdir=self.settings['last_directory'],initialfile='tinoxo'+ext,defaultextension=ext)
             if not path:return
-            if kind=='png':scene_png(self.view.primitives,self.view.canvas.winfo_width(),self.view.canvas.winfo_height(),self.palette['canvas']).save(path)
+            if kind=='png':scene_png(self.view.primitives,self.view.canvas.winfo_width(),self.view.canvas.winfo_height(),self.palette['canvas'],font_family=self.fonts.resolved['english']).save(path)
             else:
-                text=export_xyz(self.project) if kind=='xyz' else export_sdf(self.project) if kind=='sdf' else export_pdb(self.project) if kind=='pdb' else scene_svg(self.view.primitives,self.view.canvas.winfo_width(),self.view.canvas.winfo_height(),self.palette['canvas'],self.settings['font_family']) if kind=='svg' else json.dumps(self.report(),ensure_ascii=False,indent=2) if kind=='report' else portable_html(self.project,self.bank,self.settings) if kind=='html' else json.dumps(self.workspace_data(),ensure_ascii=False,indent=2)
+                text=export_xyz(self.project) if kind=='xyz' else export_sdf(self.project) if kind=='sdf' else export_pdb(self.project) if kind=='pdb' else scene_svg(self.view.primitives,self.view.canvas.winfo_width(),self.view.canvas.winfo_height(),self.palette['canvas'],self.fonts.resolved['english']) if kind=='svg' else json.dumps(self.report(),ensure_ascii=False,indent=2) if kind=='report' else portable_html(self.project,self.bank,self.settings) if kind=='html' else json.dumps(self.workspace_data(),ensure_ascii=False,indent=2)
                 atomic_write(path,text)
             self.settings['last_directory']=str(Path(path).parent);self.log('내보내기: '+path)
         for title,ext,kind in choices:self.button(frame,title,lambda kind=kind,ext=ext:write(kind,ext))
         self.label(frame,'XYZ에는 결합 정보가 없고 PDB에는 결합차수가 없습니다. 전체 편집 정보를 보존하려면 프로젝트 JSON을 함께 저장하세요. HTML은 기존 웹 기능을 실행하며 새로운 Python 기능은 .py에서 실행합니다.','Muted.TLabel',600);self.apply_theme()
     def help_dialog(self):
         win=self.dialog('사용 안내 / 과학적 범위 / 출처','1000x780');frame=self.frame(win);frame.pack(fill='both',expand=True);text=self.textbox(frame,height=28)
-        guide='''Tin Oxo Studio 3.0 · Python/Tk/X11
+        guide='''Tin Oxo Studio 3.1 · Python/Tk/X11
 
 실행: python TinOxoStudio.py
 서버 Python에 Tk, RDKit, ASE, NumPy, SciPy, Pillow가 필요합니다.
@@ -1901,11 +2205,11 @@ VESTA는 원소별 색상 숫자만 참조했습니다. VESTA 실행파일은 �
         text.insert('1.0',guide);self.apply_theme()
     def environment_dialog(self):
         import ase
-        messagebox.showinfo('환경',f"Python {sys.version.split()[0]}\nRDKit {rdBase.rdkitVersion}\nASE {ase.__version__}\nTk {self.root.tk.call('info','patchlevel')}\nDISPLAY={os.environ.get('DISPLAY','미설정')}\n설정 경로: {self.config_dir}\n렌더러: Tk Canvas / 소프트웨어 3D 투영",parent=self.root)
+        messagebox.showinfo('환경',f"Python {sys.version.split()[0]}\nRDKit {rdBase.rdkitVersion}\nASE {ase.__version__}\nTk {self.root.tk.call('info','patchlevel')}\nDISPLAY={os.environ.get('DISPLAY','미설정')}\n설정 경로: {self.config_dir}\n한글: {self.fonts.resolved['korean']} / 영문: {self.fonts.resolved['english']}\n렌더러: Tk retained Canvas / camera cache / orthographic\n마지막 프레임: {self.view.render_stats['last_ms']:.2f} ms",parent=self.root)
 
 
 def main(argv=None):
-    parser=argparse.ArgumentParser(description='Tin Oxo Studio 3.0 — native Tk/X11 molecular editor')
+    parser=argparse.ArgumentParser(description='Tin Oxo Studio 3.1 — native Tk/X11 molecular editor')
     parser.add_argument('project',nargs='?',help='project JSON, legacy HTML, XYZ, MOL/SDF, PDB, CIF')
     parser.add_argument('--check',action='store_true',help='check dependencies and core templates without DISPLAY')
     parser.add_argument('--export-core',choices=['3','6','12'],help='export bare core as XYZ without GUI')
@@ -1925,7 +2229,7 @@ def main(argv=None):
         else:print(text,end='')
         return 0
     import_tk()
-    try:root=tk.Tk()
+    try:root=tk.Tk();root.tk.call('encoding','system','utf-8')
     except tk.TclError as exc:
         print('X11 GUI를 열 수 없습니다: '+str(exc),file=sys.stderr)
         print('MobaXterm X server / SSH X11 forwarding과 echo $DISPLAY를 확인하세요. DISPLAY를 임의로 :0으로 바꾸지 마세요.',file=sys.stderr);return 2

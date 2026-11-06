@@ -1,0 +1,48 @@
+{
+  "date": "2026-11-06",
+  "environment": "Local Linux Xorg dummy X11, 1600x1000, Python 3.13 / Tk 8.6",
+  "frames": 75,
+  "warmup_frames": 5,
+  "baseline_commit": "843d034e0a6357c308557ecdc865aa53e12a999f",
+  "metric": "wall time per explicit renderer frame plus update_idletasks; excludes network latency",
+  "model": "Sn12 methyl (86 atoms) and eight translated copies (688 atoms)",
+  "results": {
+    "3.0_86_high": {
+      "median_ms": 14.62290049994408,
+      "p95_ms": 17.764638800190365,
+      "canvas_items": 822,
+      "primitives": 820
+    },
+    "3.0_688_high": {
+      "median_ms": 90.45345199979238,
+      "p95_ms": 111.16097980011546,
+      "canvas_items": 6562,
+      "primitives": 6560
+    },
+    "3.1_86_high": {
+      "median_ms": 5.288663500095936,
+      "p95_ms": 5.967937649870691,
+      "canvas_items": 822,
+      "primitives": 820
+    },
+    "3.1_86_interactive": {
+      "median_ms": 2.260037000041848,
+      "p95_ms": 2.4770443500983674,
+      "canvas_items": 822,
+      "primitives": 302
+    },
+    "3.1_688_high": {
+      "median_ms": 78.01545600000281,
+      "p95_ms": 102.66192140015846,
+      "canvas_items": 6562,
+      "primitives": 6560
+    },
+    "3.1_688_interactive": {
+      "median_ms": 29.137790500044503,
+      "p95_ms": 43.86654324996471,
+      "canvas_items": 6562,
+      "primitives": 2416
+    }
+  },
+  "limitations": "This is a local renderer comparison, not measured MobaXterm-over-SSH FPS. Fast mode preserves coordinates and visibility, reduces shading/segments, and is frame-paced in normal use."
+}

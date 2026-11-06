@@ -1,4 +1,27 @@
-# Validation — 2026-11-06
+# Validation — version 3.1.0, 2026-11-06
+
+- Python 3.13 / Tk 8.6 / RDKit 2026.09.1 / ASE 3.29.0, local Xorg X11 at 1600×1000: **54 tests passed** (44 headless-compatible, 10 GUI integration).
+- New regressions check fixed orthographic pixels per Angstrom under 23 rotations of an anisotropic model; linear wheel zoom; invariance under window resizing, panning and visibility toggles; unchanged molecular coordinates/graph; coalesced motion events; reuse of Canvas item IDs; and final detailed drawing after release.
+- Font checks cover the four requested closed choices, exact installed-family matching, explicit safe fallback, legacy preference migration, Korean glyph coverage in the bundled face, mixed text tags, Fontconfig face lookup and PNG generation, UTF-8/BOM/CP949 read/write without replacement.
+- Main dark/light UI and all 12 dialogs were exercised. Korean and English font samples, actual resolved faces and server-side font import controls were visually inspected.
+- Existing chemistry/file checks and GUI workflows continue to pass. No Gaussian executable or user HPC/MobaXterm connection was available.
+
+## Local renderer measurements
+
+75 frames per case, first 5 discarded. Measurements include render work and `update_idletasks`; they do not add artificial network latency. The 86-atom model is the supplied Sn12 methyl example; the 688-atom model contains eight translated copies. Frame pacing was bypassed only for measurement.
+
+| Model | 3.0 median / p95 ms | 3.1 detailed median / p95 ms | 3.1 interactive median / p95 ms |
+|---|---|---|---|
+| 86 atoms | 14.62 / 17.76 | 5.29 / 5.97 | 2.26 / 2.48 |
+| 688 atoms | 90.45 / 111.16 | 78.02 / 102.66 | 29.14 / 43.87 |
+
+For the 86-atom model, displayed primitive count during interaction drops from 820 to 302; for 688 atoms, from 6560 to 2416. All atoms, bonds and selection coordinates remain. Hidden detailed items are reused, not recreated per frame. Full shading/segment detail returns on release. Raw results and methodology are in `benchmarks/viewer_x11_20261106.json`.
+
+These numbers do not establish end-to-end FPS for a remote SSH/X11 link. Network RTT, bandwidth, X server implementation and server load may still limit response. The configured 15/20/30/60 FPS is a pacing target, not a throughput guarantee.
+
+## Earlier 3.0 validation record
+
+3.0 checks
 
 - Python 3.12.14 / RDKit 2026.09.1 / ASE 3.29.0: 30 chemistry and file-format checks passed; 5 GUI checks skipped without DISPLAY.
 - Python 3.13 / Tk 8.6 / RDKit / ASE, local Xorg dummy X11 display at 1600×1000: 35 checks passed, including 5 GUI integration checks.

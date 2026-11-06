@@ -9,3 +9,5 @@ Numeric element RGB values were compared with VESTA 3.5.8, https://jp-minerals.o
 An embedded compressed copy of the user's existing standalone HTML editor provides compatibility export. It remains a v2.2 browser application; new native Python features are not represented as browser-native implementations. Its original code notices and coordinate provenance are preserved.
 
 Gaussian is a separate product of Gaussian, Inc. The program generates input text only and does not include Gaussian software, basis-function coefficient files, or documentation copies. Official links and the documentation access record are in README_KO.md.
+
+Version 3.1 bundles unmodified NanumGothic-Regular.ttf and Carlito-Regular.ttf from google/fonts as offline fallback fonts. They remain under their SIL Open Font License 1.1 terms, reproduced in fonts/nanumgothic-OFL.txt and fonts/carlito-OFL.txt. The application's educational-use restriction does not replace these font licenses. Microsoft Malgun Gothic, Gulim, Arial and Calibri are selectable when locally installed; no Microsoft font binaries are included. Source URLs and SHA-256 values are recorded in fonts/README.md.
