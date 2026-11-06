@@ -1,0 +1,2570 @@
+{
+  "format": "TinOxoStudio Python",
+  "version": 3,
+  "project": {
+    "atoms": [
+      {
+        "element": "Sn",
+        "x": 0.2602,
+        "y": 0.263,
+        "z": 3.2252,
+        "label": "Sn1",
+        "id": 1,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "Sn",
+        "x": 0.4869,
+        "y": 2.9257,
+        "z": 1.3369,
+        "label": "Sn2",
+        "id": 2,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "Sn",
+        "x": 0.3989,
+        "y": -2.6726,
+        "z": 1.8043,
+        "label": "Sn3",
+        "id": 3,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "Sn",
+        "x": 2.7576,
+        "y": 1.5247,
+        "z": -1.4883,
+        "label": "Sn4",
+        "id": 4,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "Sn",
+        "x": 3.1544,
+        "y": 0.0952,
+        "z": 1.4991,
+        "label": "Sn5",
+        "id": 5,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "Sn",
+        "x": 2.6899,
+        "y": -1.8225,
+        "z": -1.2249,
+        "label": "Sn6",
+        "id": 6,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "Sn",
+        "x": -0.2602,
+        "y": -0.263,
+        "z": -3.2252,
+        "label": "Sn31",
+        "id": 7,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "Sn",
+        "x": -0.4869,
+        "y": -2.9257,
+        "z": -1.3369,
+        "label": "Sn33",
+        "id": 8,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "Sn",
+        "x": -0.3989,
+        "y": 2.6726,
+        "z": -1.8043,
+        "label": "Sn36",
+        "id": 9,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "Sn",
+        "x": -2.6899,
+        "y": 1.8225,
+        "z": 1.2249,
+        "label": "Sn39",
+        "id": 10,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "Sn",
+        "x": -2.7576,
+        "y": -1.5247,
+        "z": 1.4883,
+        "label": "Sn40",
+        "id": 11,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "Sn",
+        "x": -3.1544,
+        "y": -0.0952,
+        "z": -1.4991,
+        "label": "Sn42",
+        "id": 12,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "O",
+        "x": 3.988,
+        "y": 1.6099,
+        "z": 0.2512,
+        "label": "O7",
+        "id": 13,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "O",
+        "x": 4.034,
+        "y": -1.6036,
+        "z": 0.4722,
+        "label": "O8",
+        "id": 14,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "O",
+        "x": 1.6768,
+        "y": 1.4958,
+        "z": 2.2433,
+        "label": "O9",
+        "id": 15,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "O",
+        "x": -0.9208,
+        "y": 1.7917,
+        "z": 2.4632,
+        "label": "O10",
+        "id": 16,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "O",
+        "x": -0.97,
+        "y": -1.3208,
+        "z": 2.71,
+        "label": "O11",
+        "id": 17,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "O",
+        "x": 1.6471,
+        "y": -1.1528,
+        "z": 2.4538,
+        "label": "O12",
+        "id": 18,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "O",
+        "x": 1.3114,
+        "y": 2.8435,
+        "z": -0.563,
+        "label": "O13",
+        "id": 19,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "O",
+        "x": -1.2288,
+        "y": 2.9248,
+        "z": 0.0784,
+        "label": "O14",
+        "id": 20,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "O",
+        "x": 1.9804,
+        "y": -0.0537,
+        "z": -0.2809,
+        "label": "O15",
+        "id": 21,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "O",
+        "x": 0.97,
+        "y": 1.3208,
+        "z": -2.71,
+        "label": "O30",
+        "id": 22,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "O",
+        "x": -1.6768,
+        "y": -1.4958,
+        "z": -2.2433,
+        "label": "O32",
+        "id": 23,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "O",
+        "x": 0.9208,
+        "y": -1.7917,
+        "z": -2.4632,
+        "label": "O34",
+        "id": 24,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "O",
+        "x": -1.6471,
+        "y": 1.1528,
+        "z": -2.4538,
+        "label": "O35",
+        "id": 25,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "O",
+        "x": -3.988,
+        "y": -1.6099,
+        "z": -0.2512,
+        "label": "O41",
+        "id": 26,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "O",
+        "x": -4.034,
+        "y": 1.6036,
+        "z": -0.4722,
+        "label": "O43",
+        "id": 27,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "O",
+        "x": -1.9804,
+        "y": 0.0537,
+        "z": 0.2809,
+        "label": "O44",
+        "id": 28,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "O",
+        "x": -1.3114,
+        "y": -2.8435,
+        "z": 0.563,
+        "label": "O45",
+        "id": 29,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "O",
+        "x": 1.2288,
+        "y": -2.9248,
+        "z": -0.0784,
+        "label": "O46",
+        "id": 30,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "O",
+        "x": -3.653,
+        "y": 0.254,
+        "z": 2.3668,
+        "label": "O69",
+        "id": 31,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "O",
+        "x": 3.653,
+        "y": -0.254,
+        "z": -2.3668,
+        "label": "O70",
+        "id": 32,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "H",
+        "x": 4.8981,
+        "y": -1.3436,
+        "z": 0.0504,
+        "label": "H22",
+        "id": 33,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "H",
+        "x": -4.8981,
+        "y": 1.3436,
+        "z": -0.0504,
+        "label": "H55",
+        "id": 34,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "H",
+        "x": 4.6105,
+        "y": -0.32,
+        "z": -2.0954,
+        "label": "H74",
+        "id": 35,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "H",
+        "x": 4.9982,
+        "y": 1.5345,
+        "z": 0.0667,
+        "label": "H75",
+        "id": 36,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "H",
+        "x": -4.9982,
+        "y": -1.5345,
+        "z": -0.0667,
+        "label": "H83",
+        "id": 37,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "element": "H",
+        "x": -4.6105,
+        "y": 0.32,
+        "z": 2.0954,
+        "label": "H84",
+        "id": 38,
+        "h": 0,
+        "hSpecified": true,
+        "fixed": true,
+        "core": true
+      },
+      {
+        "id": 39,
+        "element": "C",
+        "x": 0.3882757073275219,
+        "y": 0.4419877897434312,
+        "z": 5.363905212112066,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R1"
+      },
+      {
+        "id": 40,
+        "element": "H",
+        "x": 0.33833127792952367,
+        "y": 1.4963063290862209,
+        "z": 5.64464961288102,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R1"
+      },
+      {
+        "id": 41,
+        "element": "H",
+        "x": -0.442250157345098,
+        "y": -0.09721789883385026,
+        "z": 5.824756111193336,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R1"
+      },
+      {
+        "id": 42,
+        "element": "H",
+        "x": 1.3338083246248136,
+        "y": 0.01780059480069132,
+        "z": 5.708771575708157,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R1"
+      },
+      {
+        "id": 43,
+        "element": "C",
+        "x": 0.8700906439168824,
+        "y": 4.8528913568184135,
+        "z": 2.2095960551182565,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R2"
+      },
+      {
+        "id": 44,
+        "element": "H",
+        "x": 1.9046195731735382,
+        "y": 5.1425119322187385,
+        "z": 2.012696934173581,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R2"
+      },
+      {
+        "id": 45,
+        "element": "H",
+        "x": 0.19549954160569294,
+        "y": 5.591640748917344,
+        "z": 1.7713316166517608,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R2"
+      },
+      {
+        "id": 46,
+        "element": "H",
+        "x": 0.7048134465294672,
+        "y": 4.80353410991499,
+        "z": 3.288088904268553,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R2"
+      },
+      {
+        "id": 47,
+        "element": "C",
+        "x": 0.7117344424399844,
+        "y": -4.435848675570821,
+        "z": 2.9940851569594447,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R3"
+      },
+      {
+        "id": 48,
+        "element": "H",
+        "x": -0.13705950360557329,
+        "y": -5.11236793519084,
+        "z": 2.872553368885228,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R3"
+      },
+      {
+        "id": 49,
+        "element": "H",
+        "x": 1.6261290106918795,
+        "y": -4.936922892879723,
+        "z": 2.668959427482338,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R3"
+      },
+      {
+        "id": 50,
+        "element": "H",
+        "x": 0.8050537529884905,
+        "y": -4.1539850484955245,
+        "z": 4.045153145948339,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R3"
+      },
+      {
+        "id": 51,
+        "element": "C",
+        "x": 3.8030910079121196,
+        "y": 2.956215412990951,
+        "z": -2.7049397062171887,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R4"
+      },
+      {
+        "id": 52,
+        "element": "H",
+        "x": 4.789534728341285,
+        "y": 3.1466880032990083,
+        "z": -2.276514186715688,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R4"
+      },
+      {
+        "id": 53,
+        "element": "H",
+        "x": 3.9158056764687186,
+        "y": 2.5607403742420134,
+        "z": -3.716766981441088,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R4"
+      },
+      {
+        "id": 54,
+        "element": "H",
+        "x": 3.235041732594642,
+        "y": 3.8884272158945734,
+        "z": -2.739590691844067,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R4"
+      },
+      {
+        "id": 55,
+        "element": "C",
+        "x": 4.502032792976399,
+        "y": 0.1568557564936779,
+        "z": 3.173192119026257,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R5"
+      },
+      {
+        "id": 56,
+        "element": "H",
+        "x": 5.165791448994289,
+        "y": 1.0186111417212207,
+        "z": 3.07469567449359,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R5"
+      },
+      {
+        "id": 57,
+        "element": "H",
+        "x": 3.928899535880405,
+        "y": 0.24269688807077233,
+        "z": 4.098961586771019,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R5"
+      },
+      {
+        "id": 58,
+        "element": "H",
+        "x": 5.09600437040214,
+        "y": -0.7594196635368181,
+        "z": 3.1963575096934527,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R5"
+      },
+      {
+        "id": 59,
+        "element": "C",
+        "x": 3.73889388788822,
+        "y": -3.472402692124046,
+        "z": -2.1192896967737185,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R6"
+      },
+      {
+        "id": 60,
+        "element": "H",
+        "x": 4.257721693693855,
+        "y": -3.13011469575716,
+        "z": -3.0173743712109213,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R6"
+      },
+      {
+        "id": 61,
+        "element": "H",
+        "x": 4.4660914185442095,
+        "y": -3.8700615082345724,
+        "z": -1.407987542239006,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R6"
+      },
+      {
+        "id": 62,
+        "element": "H",
+        "x": 3.0257572111715776,
+        "y": -4.255182006927375,
+        "z": -2.3868567726706305,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R6"
+      },
+      {
+        "id": 63,
+        "element": "C",
+        "x": -0.3882757073275219,
+        "y": -0.4419877897434312,
+        "z": -5.363905212112066,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R7"
+      },
+      {
+        "id": 64,
+        "element": "H",
+        "x": 0.24295782719181405,
+        "y": 0.3170016418538255,
+        "z": -5.831215296119274,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R7"
+      },
+      {
+        "id": 65,
+        "element": "H",
+        "x": -0.048881012803103224,
+        "y": -1.4348460221318595,
+        "z": -5.66712676374638,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R7"
+      },
+      {
+        "id": 66,
+        "element": "H",
+        "x": -1.4239663315101676,
+        "y": -0.29904486910229633,
+        "z": -5.679835216836517,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R7"
+      },
+      {
+        "id": 67,
+        "element": "C",
+        "x": -0.8700906439168824,
+        "y": -4.8528913568184135,
+        "z": -2.2095960551182565,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R8"
+      },
+      {
+        "id": 68,
+        "element": "H",
+        "x": -1.0340984316291466,
+        "y": -4.740135537988504,
+        "z": -3.283508071012785,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R8"
+      },
+      {
+        "id": 69,
+        "element": "H",
+        "x": -0.012126866640497558,
+        "y": -5.506881364875337,
+        "z": -2.0390241819630908,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R8"
+      },
+      {
+        "id": 70,
+        "element": "H",
+        "x": -1.758707260849241,
+        "y": -5.290669887175046,
+        "z": -1.7495852053147702,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R8"
+      },
+      {
+        "id": 71,
+        "element": "C",
+        "x": -0.7117344424399844,
+        "y": 4.435848675570821,
+        "z": -2.9940851569594447,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R9"
+      },
+      {
+        "id": 72,
+        "element": "H",
+        "x": 0.2194778441288064,
+        "y": 5.003222035786022,
+        "z": -3.0559769533008003,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R9"
+      },
+      {
+        "id": 73,
+        "element": "H",
+        "x": -1.0288457297001108,
+        "y": 4.14594578160277,
+        "z": -3.9982247295436015,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R9"
+      },
+      {
+        "id": 74,
+        "element": "H",
+        "x": -1.4847553049464293,
+        "y": 5.054107967063475,
+        "z": -2.5324644142720705,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R9"
+      },
+      {
+        "id": 75,
+        "element": "C",
+        "x": -3.73889388788822,
+        "y": 3.472402692124046,
+        "z": 2.1192896967737185,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R10"
+      },
+      {
+        "id": 76,
+        "element": "H",
+        "x": -3.2328347421826464,
+        "y": 4.406330066552894,
+        "z": 1.8651573546110018,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R10"
+      },
+      {
+        "id": 77,
+        "element": "H",
+        "x": -4.763719255065594,
+        "y": 3.4994477354812012,
+        "z": 1.742592112380231,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R10"
+      },
+      {
+        "id": 78,
+        "element": "H",
+        "x": -3.753016384992015,
+        "y": 3.349580335627632,
+        "z": 3.2044692852689454,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R10"
+      },
+      {
+        "id": 79,
+        "element": "C",
+        "x": -3.8030910079121196,
+        "y": -2.956215412990951,
+        "z": 2.7049397062171887,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R11"
+      },
+      {
+        "id": 80,
+        "element": "H",
+        "x": -4.879136522914534,
+        "y": -2.845156897636558,
+        "z": 2.5543027160607483,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R11"
+      },
+      {
+        "id": 81,
+        "element": "H",
+        "x": -3.4981887690195346,
+        "y": -3.9661194567283866,
+        "z": 2.422047527411583,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R11"
+      },
+      {
+        "id": 82,
+        "element": "H",
+        "x": -3.5630567934983506,
+        "y": -2.7845794139694116,
+        "z": 3.7565214554012885,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R11"
+      },
+      {
+        "id": 83,
+        "element": "C",
+        "x": -4.502032792976399,
+        "y": -0.1568557564936779,
+        "z": -3.173192119026257,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R12"
+      },
+      {
+        "id": 84,
+        "element": "H",
+        "x": -4.255988968265951,
+        "y": 0.6487045185719355,
+        "z": -3.8684866800225253,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R12"
+      },
+      {
+        "id": 85,
+        "element": "H",
+        "x": -4.406873189868159,
+        "y": -1.118637518462703,
+        "z": -3.681935698787573,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R12"
+      },
+      {
+        "id": 86,
+        "element": "H",
+        "x": -5.527833274930419,
+        "y": -0.031955508919132,
+        "z": -2.8195923242791965,
+        "charge": 0,
+        "radical": 0,
+        "isotope": 0,
+        "aromatic": false,
+        "chirality": 0,
+        "core": false,
+        "fixed": false,
+        "slot": "R12"
+      }
+    ],
+    "bonds": [
+      {
+        "a": 1,
+        "b": 15,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 1,
+        "b": 16,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 1,
+        "b": 17,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 1,
+        "b": 18,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 2,
+        "b": 15,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 2,
+        "b": 16,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 2,
+        "b": 19,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 2,
+        "b": 20,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 3,
+        "b": 17,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 3,
+        "b": 18,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 3,
+        "b": 29,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 3,
+        "b": 30,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 4,
+        "b": 13,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 4,
+        "b": 19,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 4,
+        "b": 21,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 4,
+        "b": 22,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 4,
+        "b": 32,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 5,
+        "b": 13,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 5,
+        "b": 14,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 5,
+        "b": 15,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 5,
+        "b": 18,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 5,
+        "b": 21,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 6,
+        "b": 14,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 6,
+        "b": 21,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 6,
+        "b": 24,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 6,
+        "b": 30,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 6,
+        "b": 32,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 13,
+        "b": 36,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 14,
+        "b": 33,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 16,
+        "b": 10,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 17,
+        "b": 11,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 19,
+        "b": 9,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 20,
+        "b": 9,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 20,
+        "b": 10,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 22,
+        "b": 7,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 22,
+        "b": 9,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 7,
+        "b": 23,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 7,
+        "b": 24,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 7,
+        "b": 25,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 23,
+        "b": 8,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 23,
+        "b": 12,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 8,
+        "b": 24,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 8,
+        "b": 29,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 8,
+        "b": 30,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 25,
+        "b": 9,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 25,
+        "b": 12,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 10,
+        "b": 27,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 10,
+        "b": 28,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 10,
+        "b": 31,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 11,
+        "b": 26,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 11,
+        "b": 28,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 11,
+        "b": 29,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 11,
+        "b": 31,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 26,
+        "b": 12,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 26,
+        "b": 37,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 12,
+        "b": 27,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 12,
+        "b": 28,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 27,
+        "b": 34,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 31,
+        "b": 38,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 32,
+        "b": 35,
+        "order": 1.0,
+        "source": "literature",
+        "kind": "core"
+      },
+      {
+        "a": 39,
+        "b": 40,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 39,
+        "b": 41,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 39,
+        "b": 42,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 1,
+        "b": 39,
+        "order": 1.0,
+        "kind": "covalent",
+        "source": "explicit attachment"
+      },
+      {
+        "a": 43,
+        "b": 44,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 43,
+        "b": 45,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 43,
+        "b": 46,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 2,
+        "b": 43,
+        "order": 1.0,
+        "kind": "covalent",
+        "source": "explicit attachment"
+      },
+      {
+        "a": 47,
+        "b": 48,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 47,
+        "b": 49,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 47,
+        "b": 50,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 3,
+        "b": 47,
+        "order": 1.0,
+        "kind": "covalent",
+        "source": "explicit attachment"
+      },
+      {
+        "a": 51,
+        "b": 52,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 51,
+        "b": 53,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 51,
+        "b": 54,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 4,
+        "b": 51,
+        "order": 1.0,
+        "kind": "covalent",
+        "source": "explicit attachment"
+      },
+      {
+        "a": 55,
+        "b": 56,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 55,
+        "b": 57,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 55,
+        "b": 58,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 5,
+        "b": 55,
+        "order": 1.0,
+        "kind": "covalent",
+        "source": "explicit attachment"
+      },
+      {
+        "a": 59,
+        "b": 60,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 59,
+        "b": 61,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 59,
+        "b": 62,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 6,
+        "b": 59,
+        "order": 1.0,
+        "kind": "covalent",
+        "source": "explicit attachment"
+      },
+      {
+        "a": 63,
+        "b": 64,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 63,
+        "b": 65,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 63,
+        "b": 66,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 7,
+        "b": 63,
+        "order": 1.0,
+        "kind": "covalent",
+        "source": "explicit attachment"
+      },
+      {
+        "a": 67,
+        "b": 68,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 67,
+        "b": 69,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 67,
+        "b": 70,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 8,
+        "b": 67,
+        "order": 1.0,
+        "kind": "covalent",
+        "source": "explicit attachment"
+      },
+      {
+        "a": 71,
+        "b": 72,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 71,
+        "b": 73,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 71,
+        "b": 74,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 9,
+        "b": 71,
+        "order": 1.0,
+        "kind": "covalent",
+        "source": "explicit attachment"
+      },
+      {
+        "a": 75,
+        "b": 76,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 75,
+        "b": 77,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 75,
+        "b": 78,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 10,
+        "b": 75,
+        "order": 1.0,
+        "kind": "covalent",
+        "source": "explicit attachment"
+      },
+      {
+        "a": 79,
+        "b": 80,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 79,
+        "b": 81,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 79,
+        "b": 82,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 11,
+        "b": 79,
+        "order": 1.0,
+        "kind": "covalent",
+        "source": "explicit attachment"
+      },
+      {
+        "a": 83,
+        "b": 84,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 83,
+        "b": 85,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 83,
+        "b": 86,
+        "order": 1.0,
+        "source": "RDKit SMILES",
+        "kind": "covalent"
+      },
+      {
+        "a": 12,
+        "b": 83,
+        "order": 1.0,
+        "kind": "covalent",
+        "source": "explicit attachment"
+      }
+    ],
+    "metadata": {
+      "nuclearity": 12,
+      "totalCharge": 2,
+      "status": "DFT 원본 코어",
+      "formula": "[(RSn)12O14(OH)6]²⁺",
+      "source": "10.1021/acs.jpcc.3c07480",
+      "dataset": "10.21942/uva.24574750",
+      "coordinateNote": "SnBu12_diA.mol2; B3LYP/def2-SVP gas phase. 원본 Sn/O/OH 좌표를 고정.",
+      "protonation": "O14(OH)6",
+      "license": "Source coordinates CC BY 4.0",
+      "requiresChargeReview": true
+    },
+    "slots": [
+      {
+        "id": "R1",
+        "kind": "R",
+        "sn": [
+          1
+        ],
+        "direction": [
+          0.05957009643140554,
+          0.0832501347643866,
+          0.9947466102846818
+        ],
+        "position": [
+          0.2602,
+          0.263,
+          3.2252
+        ],
+        "label": "Sn1 · Sn–C",
+        "bondLength": 2.15,
+        "anchor": 39,
+        "mode": "covalent",
+        "smiles": "[*:1]C",
+        "ligandIds": [
+          39,
+          40,
+          41,
+          42
+        ],
+        "fragmentCharge": 0,
+        "resonance": {
+          "forms": 1,
+          "truncated": false,
+          "bonds": {},
+          "smiles": [
+            "[H]C"
+          ]
+        },
+        "resonanceRestraints": [],
+        "geometryMethod": "RDKit ETKDGv3 + MMFF94"
+      },
+      {
+        "id": "R2",
+        "kind": "R",
+        "sn": [
+          2
+        ],
+        "direction": [
+          0.17822820647296855,
+          0.8963680729387971,
+          0.4059051419154682
+        ],
+        "position": [
+          0.4869,
+          2.9257,
+          1.3369
+        ],
+        "label": "Sn2 · Sn–C",
+        "bondLength": 2.15,
+        "anchor": 43,
+        "mode": "covalent",
+        "smiles": "[*:1]C",
+        "ligandIds": [
+          43,
+          44,
+          45,
+          46
+        ],
+        "fragmentCharge": 0,
+        "resonance": {
+          "forms": 1,
+          "truncated": false,
+          "bonds": {},
+          "smiles": [
+            "[H]C"
+          ]
+        },
+        "resonanceRestraints": [],
+        "geometryMethod": "RDKit ETKDGv3 + MMFF94"
+      },
+      {
+        "id": "R3",
+        "kind": "R",
+        "sn": [
+          3
+        ],
+        "direction": [
+          0.1455043918325509,
+          -0.8201156630561959,
+          0.5533884450974161
+        ],
+        "position": [
+          0.3989,
+          -2.6726,
+          1.8043
+        ],
+        "label": "Sn3 · Sn–C",
+        "bondLength": 2.15,
+        "anchor": 47,
+        "mode": "covalent",
+        "smiles": "[*:1]C",
+        "ligandIds": [
+          47,
+          48,
+          49,
+          50
+        ],
+        "fragmentCharge": 0,
+        "resonance": {
+          "forms": 1,
+          "truncated": false,
+          "bonds": {},
+          "smiles": [
+            "[H]C"
+          ]
+        },
+        "resonanceRestraints": [],
+        "geometryMethod": "RDKit ETKDGv3 + MMFF94"
+      },
+      {
+        "id": "R4",
+        "kind": "R",
+        "sn": [
+          4
+        ],
+        "direction": [
+          0.4862748874009859,
+          0.6658211223213726,
+          -0.5658789331242738
+        ],
+        "position": [
+          2.7576,
+          1.5247,
+          -1.4883
+        ],
+        "label": "Sn4 · Sn–C",
+        "bondLength": 2.15,
+        "anchor": 51,
+        "mode": "covalent",
+        "smiles": "[*:1]C",
+        "ligandIds": [
+          51,
+          52,
+          53,
+          54
+        ],
+        "fragmentCharge": 0,
+        "resonance": {
+          "forms": 1,
+          "truncated": false,
+          "bonds": {},
+          "smiles": [
+            "[H]C"
+          ]
+        },
+        "resonanceRestraints": [],
+        "geometryMethod": "RDKit ETKDGv3 + MMFF94"
+      },
+      {
+        "id": "R5",
+        "kind": "R",
+        "sn": [
+          5
+        ],
+        "direction": [
+          0.6268059502215808,
+          0.028677096043571104,
+          0.7786474972215149
+        ],
+        "position": [
+          3.1544,
+          0.0952,
+          1.4991
+        ],
+        "label": "Sn5 · Sn–C",
+        "bondLength": 2.15,
+        "anchor": 55,
+        "mode": "covalent",
+        "smiles": "[*:1]C",
+        "ligandIds": [
+          55,
+          56,
+          57,
+          58
+        ],
+        "fragmentCharge": 0,
+        "resonance": {
+          "forms": 1,
+          "truncated": false,
+          "bonds": {},
+          "smiles": [
+            "[H]C"
+          ]
+        },
+        "resonanceRestraints": [],
+        "geometryMethod": "RDKit ETKDGv3 + MMFF94"
+      },
+      {
+        "id": "R6",
+        "kind": "R",
+        "sn": [
+          6
+        ],
+        "direction": [
+          0.48790413390149745,
+          -0.7673966009879283,
+          -0.41599520780172955
+        ],
+        "position": [
+          2.6899,
+          -1.8225,
+          -1.2249
+        ],
+        "label": "Sn6 · Sn–C",
+        "bondLength": 2.15,
+        "anchor": 59,
+        "mode": "covalent",
+        "smiles": "[*:1]C",
+        "ligandIds": [
+          59,
+          60,
+          61,
+          62
+        ],
+        "fragmentCharge": 0,
+        "resonance": {
+          "forms": 1,
+          "truncated": false,
+          "bonds": {},
+          "smiles": [
+            "[H]C"
+          ]
+        },
+        "resonanceRestraints": [],
+        "geometryMethod": "RDKit ETKDGv3 + MMFF94"
+      },
+      {
+        "id": "R7",
+        "kind": "R",
+        "sn": [
+          7
+        ],
+        "direction": [
+          -0.05957009643140554,
+          -0.0832501347643866,
+          -0.9947466102846818
+        ],
+        "position": [
+          -0.2602,
+          -0.263,
+          -3.2252
+        ],
+        "label": "Sn7 · Sn–C",
+        "bondLength": 2.15,
+        "anchor": 63,
+        "mode": "covalent",
+        "smiles": "[*:1]C",
+        "ligandIds": [
+          63,
+          64,
+          65,
+          66
+        ],
+        "fragmentCharge": 0,
+        "resonance": {
+          "forms": 1,
+          "truncated": false,
+          "bonds": {},
+          "smiles": [
+            "[H]C"
+          ]
+        },
+        "resonanceRestraints": [],
+        "geometryMethod": "RDKit ETKDGv3 + MMFF94"
+      },
+      {
+        "id": "R8",
+        "kind": "R",
+        "sn": [
+          8
+        ],
+        "direction": [
+          -0.17822820647296855,
+          -0.8963680729387971,
+          -0.4059051419154682
+        ],
+        "position": [
+          -0.4869,
+          -2.9257,
+          -1.3369
+        ],
+        "label": "Sn8 · Sn–C",
+        "bondLength": 2.15,
+        "anchor": 67,
+        "mode": "covalent",
+        "smiles": "[*:1]C",
+        "ligandIds": [
+          67,
+          68,
+          69,
+          70
+        ],
+        "fragmentCharge": 0,
+        "resonance": {
+          "forms": 1,
+          "truncated": false,
+          "bonds": {},
+          "smiles": [
+            "[H]C"
+          ]
+        },
+        "resonanceRestraints": [],
+        "geometryMethod": "RDKit ETKDGv3 + MMFF94"
+      },
+      {
+        "id": "R9",
+        "kind": "R",
+        "sn": [
+          9
+        ],
+        "direction": [
+          -0.1455043918325509,
+          0.8201156630561959,
+          -0.5533884450974161
+        ],
+        "position": [
+          -0.3989,
+          2.6726,
+          -1.8043
+        ],
+        "label": "Sn9 · Sn–C",
+        "bondLength": 2.15,
+        "anchor": 71,
+        "mode": "covalent",
+        "smiles": "[*:1]C",
+        "ligandIds": [
+          71,
+          72,
+          73,
+          74
+        ],
+        "fragmentCharge": 0,
+        "resonance": {
+          "forms": 1,
+          "truncated": false,
+          "bonds": {},
+          "smiles": [
+            "[H]C"
+          ]
+        },
+        "resonanceRestraints": [],
+        "geometryMethod": "RDKit ETKDGv3 + MMFF94"
+      },
+      {
+        "id": "R10",
+        "kind": "R",
+        "sn": [
+          10
+        ],
+        "direction": [
+          -0.48790413390149745,
+          0.7673966009879283,
+          0.41599520780172955
+        ],
+        "position": [
+          -2.6899,
+          1.8225,
+          1.2249
+        ],
+        "label": "Sn10 · Sn–C",
+        "bondLength": 2.15,
+        "anchor": 75,
+        "mode": "covalent",
+        "smiles": "[*:1]C",
+        "ligandIds": [
+          75,
+          76,
+          77,
+          78
+        ],
+        "fragmentCharge": 0,
+        "resonance": {
+          "forms": 1,
+          "truncated": false,
+          "bonds": {},
+          "smiles": [
+            "[H]C"
+          ]
+        },
+        "resonanceRestraints": [],
+        "geometryMethod": "RDKit ETKDGv3 + MMFF94"
+      },
+      {
+        "id": "R11",
+        "kind": "R",
+        "sn": [
+          11
+        ],
+        "direction": [
+          -0.4862748874009859,
+          -0.6658211223213726,
+          0.5658789331242738
+        ],
+        "position": [
+          -2.7576,
+          -1.5247,
+          1.4883
+        ],
+        "label": "Sn11 · Sn–C",
+        "bondLength": 2.15,
+        "anchor": 79,
+        "mode": "covalent",
+        "smiles": "[*:1]C",
+        "ligandIds": [
+          79,
+          80,
+          81,
+          82
+        ],
+        "fragmentCharge": 0,
+        "resonance": {
+          "forms": 1,
+          "truncated": false,
+          "bonds": {},
+          "smiles": [
+            "[H]C"
+          ]
+        },
+        "resonanceRestraints": [],
+        "geometryMethod": "RDKit ETKDGv3 + MMFF94"
+      },
+      {
+        "id": "R12",
+        "kind": "R",
+        "sn": [
+          12
+        ],
+        "direction": [
+          -0.6268059502215808,
+          -0.028677096043571104,
+          -0.7786474972215149
+        ],
+        "position": [
+          -3.1544,
+          -0.0952,
+          -1.4991
+        ],
+        "label": "Sn12 · Sn–C",
+        "bondLength": 2.15,
+        "anchor": 83,
+        "mode": "covalent",
+        "smiles": "[*:1]C",
+        "ligandIds": [
+          83,
+          84,
+          85,
+          86
+        ],
+        "fragmentCharge": 0,
+        "resonance": {
+          "forms": 1,
+          "truncated": false,
+          "bonds": {},
+          "smiles": [
+            "[H]C"
+          ]
+        },
+        "resonanceRestraints": [],
+        "geometryMethod": "RDKit ETKDGv3 + MMFF94"
+      }
+    ],
+    "title": "Sn12 methyl example",
+    "version": 3
+  },
+  "bank": {
+    "version": 2,
+    "id": "example-bank",
+    "revision": 0,
+    "activeId": null,
+    "entries": [],
+    "trash": []
+  },
+  "settings": {
+    "theme": "dark",
+    "font_size": 11,
+    "font_family": "DejaVu Sans",
+    "selection": "#00e5ff",
+    "element_colors": {
+      "H": "#ffcccc",
+      "He": "#fce9cf",
+      "Li": "#86e074",
+      "Be": "#5fd87b",
+      "B": "#20a20f",
+      "C": "#814929",
+      "N": "#b0bae6",
+      "O": "#ff0300",
+      "F": "#b0bae6",
+      "Ne": "#ff38b5",
+      "Na": "#fadd3d",
+      "Mg": "#fc7c16",
+      "Al": "#81b3d6",
+      "Si": "#1b3bfa",
+      "P": "#c19cc3",
+      "S": "#fffa00",
+      "Cl": "#32fc03",
+      "Ar": "#cffec5",
+      "K": "#a122f7",
+      "Ca": "#5b96be",
+      "Sc": "#b663ac",
+      "Ti": "#78caff",
+      "V": "#e61a00",
+      "Cr": "#00009e",
+      "Mn": "#a9099e",
+      "Fe": "#b57200",
+      "Co": "#0000af",
+      "Ni": "#b8bcbe",
+      "Cu": "#2247dd",
+      "Zn": "#8f9082",
+      "Ga": "#9fe474",
+      "Ge": "#7e6fa6",
+      "As": "#75d057",
+      "Se": "#9aef10",
+      "Br": "#7f3103",
+      "Kr": "#fac1f3",
+      "Rb": "#ff0099",
+      "Sr": "#00ff27",
+      "Y": "#67988e",
+      "Zr": "#00ff00",
+      "Nb": "#4cb376",
+      "Mo": "#b486b0",
+      "Tc": "#cdafcb",
+      "Ru": "#cfb8ae",
+      "Rh": "#ced2ab",
+      "Pd": "#c2c4b9",
+      "Ag": "#b8bcbe",
+      "Cd": "#f31fdc",
+      "In": "#d781bb",
+      "Sn": "#9b8fba",
+      "Sb": "#d88350",
+      "Te": "#ada252",
+      "I": "#8f1f8b",
+      "Xe": "#9ba1f8",
+      "Cs": "#0fffb9",
+      "Ba": "#1ef02d",
+      "La": "#5ac449",
+      "Ce": "#d1fd06",
+      "Pr": "#fde206",
+      "Nd": "#fc8e07",
+      "Pm": "#0000f5",
+      "Sm": "#fd067d",
+      "Eu": "#fb08d5",
+      "Gd": "#c004ff",
+      "Tb": "#7104fe",
+      "Dy": "#3106fd",
+      "Ho": "#0742fb",
+      "Er": "#49733b",
+      "Tm": "#0000e0",
+      "Yb": "#27fdf4",
+      "Lu": "#26fdb5",
+      "Hf": "#b4b459",
+      "Ta": "#b79b56",
+      "W": "#8e8a80",
+      "Re": "#b3b18e",
+      "Os": "#c9b179",
+      "Ir": "#c9cf73",
+      "Pt": "#ccc6bf",
+      "Au": "#feb338",
+      "Hg": "#d3b8cc",
+      "Tl": "#96896d",
+      "Pb": "#53535b",
+      "Bi": "#d230f8",
+      "Po": "#0000ff",
+      "At": "#0000ff",
+      "Rn": "#ffff00",
+      "Fr": "#000000",
+      "Ra": "#6eaa59",
+      "Ac": "#649e73",
+      "Th": "#26fe78",
+      "Pa": "#29fb35",
+      "U": "#7aa2aa",
+      "Np": "#4c4c4c",
+      "Pu": "#4c4c4c",
+      "Am": "#4c4c4c",
+      "Cm": "#4c4c4c",
+      "Bk": "#4c4c4c",
+      "Cf": "#4c4c4c",
+      "Es": "#4c4c4c",
+      "Fm": "#4c4c4c",
+      "Md": "#4c4c4c",
+      "No": "#4c4c4c",
+      "Lr": "#4c4c4c",
+      "Rf": "#4c4c4c",
+      "Db": "#4c4c4c",
+      "Sg": "#4c4c4c",
+      "Bh": "#4c4c4c",
+      "Hs": "#4c4c4c",
+      "Mt": "#4c4c4c",
+      "Ds": "#4c4c4c",
+      "Rg": "#4c4c4c",
+      "Cn": "#4c4c4c",
+      "Nh": "#4c4c4c",
+      "Fl": "#4c4c4c",
+      "Mc": "#4c4c4c",
+      "Lv": "#4c4c4c",
+      "Ts": "#4c4c4c",
+      "Og": "#4c4c4c"
+    },
+    "text_colors": {},
+    "ff": "MMFF94",
+    "favorites": [],
+    "contact": {
+      "mode": "radii",
+      "vdw": 0.75,
+      "covalent": 1.18,
+      "minimum": 2.0
+    },
+    "last_directory": "."
+  }
+}

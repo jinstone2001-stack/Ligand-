@@ -1,0 +1,86 @@
+EDUCATIONAL USE ONLY LICENSE
+Version 1.0
+
+Copyright (c) 2026 jinstone2001-stack. All rights reserved.
+
+1. Scope
+
+"Software" means the original code and accompanying documentation provided
+under this License. This License applies only to material for which the
+copyright holder has authority to grant these permissions. Third-party
+components remain subject to their respective licenses.
+
+2. Permitted Educational Use
+
+Subject to the conditions below, you may access, download, privately copy,
+install, and execute the unmodified Software solely for noncommercial
+education, including personal study, learning, and classroom instruction.
+Copies may be kept only as reasonably necessary for your own permitted use
+and backups. Preserve this License and all copyright notices in each copy.
+
+"Noncommercial education" means learning or instruction that is not primarily
+intended for commercial advantage or monetary compensation. Ordinary tuition
+at a nonprofit educational institution does not, by itself, make classroom
+instruction commercial. Company training, paid commercial courses, consulting,
+and business or product development are not permitted under this License.
+Educational affiliation alone does not authorize other uses, including
+research unrelated to instruction or personal study.
+
+3. No Modification
+
+You may not modify, adapt, translate the code, create derivative versions of,
+or incorporate any part of the Software into another software project, even
+for private or educational use. Ordinary compilation, installation, and
+execution of the unmodified Software, and supplying user inputs or changing
+settings through its intended interfaces, are permitted by Section 2.
+
+4. No Redistribution
+
+You may not redistribute, publish, upload, sublicense, sell, rent, lend, or
+otherwise provide copies of the Software, in source or executable form, to
+others, whether modified or unmodified, free of charge or for payment.
+You may not make the Software available to others as a hosted application,
+service, or API. For educational use, direct others to the copyright holder's
+original repository instead of providing copies yourself.
+
+5. No Commercial Use
+
+You may not use the Software for commercial purposes, including commercial
+research, internal business operations, commercial services, or development,
+testing, or support of commercial products. Noncommercial use outside the
+educational purposes expressly permitted in Section 2 is also prohibited.
+
+6. Platform Terms and Statutory Rights
+
+If the copyright holder publishes the Software on GitHub or another hosting
+platform, this License does not restrict the rights expressly granted to
+users under that platform's applicable terms of service, including viewing
+and platform-native forking where those terms grant such rights. That limited
+platform permission does not itself authorize modification, commercial use,
+or redistribution outside the rights granted by those terms.
+Nothing in this License limits rights or exceptions that applicable law
+does not permit the copyright holder to restrict.
+
+7. Separate Permission and Reserved Rights
+
+Any use not expressly permitted by this License requires prior written
+permission from the relevant copyright holder. No trademark rights or other
+rights are granted by implication. This is a custom restrictive license;
+it is not an open-source license.
+
+8. Termination
+
+Your permissions under this License terminate automatically if you violate
+its conditions. Upon termination, stop using the Software and delete copies
+under your control, except to the extent retention or use is permitted by
+non-waivable law or independently applicable platform terms. Reinstatement
+requires written permission from the copyright holder.
+
+9. Disclaimer of Warranty and Limitation of Liability
+
+TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE SOFTWARE IS PROVIDED
+"AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR IMPLIED, INCLUDING BUT NOT
+LIMITED TO WARRANTIES OF MERCHANTABILITY, FITNESS FOR A PARTICULAR PURPOSE,
+AND NONINFRINGEMENT. TO THE MAXIMUM EXTENT PERMITTED BY APPLICABLE LAW, THE
+COPYRIGHT HOLDERS SHALL NOT BE LIABLE FOR ANY CLAIM, DAMAGES, OR OTHER
+LIABILITY ARISING FROM OR IN CONNECTION WITH THE SOFTWARE OR ITS USE.
