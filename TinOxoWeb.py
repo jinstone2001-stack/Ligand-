@@ -491,13 +491,17 @@ def run(args):
     print(f'Tin Oxo Studio {c.VERSION} · Browser workspace\n{url}\n종료: Ctrl+C',flush=True)
     opener=None
     remote=bool(os.environ.get('SSH_CONNECTION') or os.environ.get('SSH_CLIENT'))
-    if remote:
+    if remote and args.no_browser:
         print(f'SSH 접속 감지: PC에서 ssh -L {server.server_port}:127.0.0.1:{server.server_port} user@server 로 포트를 전달한 뒤 PC 브라우저에서 위 주소를 여세요. X11 브라우저 전달은 사용하지 않습니다.',flush=True)
-    if not args.no_browser and (not remote or getattr(args,'open_browser',False)):
+    # Match 4.1: SSH variables must not silently suppress the requested browser.
+    # Headless/port-forwarded sessions opt out explicitly with --no-browser.
+    if not args.no_browser:
+        print('기본 브라우저에 접속 주소를 전달합니다. 자동 열기를 끄려면 --no-browser를 사용하세요.',flush=True)
         def open_browser():
             try:
-                if not webbrowser.open(url,new=2):print('브라우저 자동 실행이 지원되지 않습니다. 위 주소를 브라우저에 붙여 넣으세요.',flush=True)
-            except webbrowser.Error:print('위 주소를 브라우저에서 직접 열어 주세요.',flush=True)
+                if not webbrowser.open(url,new=2):print('브라우저 자동 열기를 완료하지 못했습니다. 기본 브라우저 설정을 확인하거나 다음 주소를 직접 여세요:\n'+url,flush=True)
+            except (webbrowser.Error,OSError) as exc:
+                print('브라우저 자동 열기 실패: '+str(exc)+'\n다음 주소를 브라우저에서 직접 여세요:\n'+url,flush=True)
         opener=threading.Timer(.25,open_browser);opener.daemon=True;opener.start()
     try:server.serve_forever(poll_interval=.25)
     except KeyboardInterrupt:print('\n서버를 종료합니다.')

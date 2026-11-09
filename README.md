@@ -1,6 +1,12 @@
-# Tin Oxo Studio 4.2.0
+# Tin Oxo Studio 4.3.0
 
 **Sn 옥소 클러스터 편집기를 localhost 웹 브라우저에서 실행합니다.** 기존 RDKit/ASE 계산 기능과 Gaussian 16 입력 생성기를 Python 서버에서 사용하고, 글씨와 구조 화면은 접속한 브라우저에서 표시합니다. 웹 모드에는 Tk, X11, Node.js, 외부 CDN이 필요하지 않습니다.
+
+## 4.3 브라우저 자동 열기 수정
+
+4.2는 SSH 환경 변수가 있으면 주소를 출력한 뒤 브라우저 자동 열기를 생략했습니다. 4.3은 **4.1처럼 기본 브라우저에 접속 주소를 전달**하도록 복원했습니다. `--no-browser`를 명시한 경우에만 자동 열기를 생략하며, 기존 `--open-browser` 명령도 계속 지원합니다. OS가 브라우저를 열지 못하면 서버를 유지하면서 전체 접속 주소와 안내를 출력합니다.
+
+`main`은 항상 최신 검증 버전을 가리킵니다. 버전별 코드는 `ver-4.3` 같은 브랜치에도 보존합니다.
 
 ## 4.2 성능 개선
 
@@ -8,9 +14,9 @@
 
 편집은 바뀐 데이터만 복사·전송하며, 구조 보관함에는 현재 필요한 요약만 전송합니다. 자동 저장은 화면 응답과 분리하고 연속 편집을 묶어 처리합니다. 큰 검사 표는 페이지로 나누고, 숨겨진 표와 바뀌지 않은 화면은 다시 만들지 않습니다. 화면 설정에서 3D 품질(자동/속도 우선/고화질)과 목표 프레임을 선택할 수 있습니다. 이 설정은 버튼·메뉴의 글씨 해상도와 별개입니다.
 
-업데이트하려면 기존 서버를 **Ctrl+C로 종료**한 다음 아래 ZIP 전체를 새 폴더에 풀어 실행하세요. 실행 화면의 버전이 **4.2.0**인지 확인하고, 열려 있던 탭은 새로 고침하세요. 기존 작업은 동일한 설정 폴더에서 복구합니다.
+업데이트하려면 기존 서버를 **Ctrl+C로 종료**한 다음 아래 ZIP 전체를 새 폴더에 풀어 실행하세요. 실행 화면의 버전이 **4.3.0**인지 확인하고, 열려 있던 탭은 새로 고침하세요. 기존 작업은 동일한 설정 폴더에서 복구합니다.
 
-[**4.2 성능 개선판 ZIP 다운로드**](https://github.com/jinstone2001-stack/Ligand-/archive/refs/heads/ver-4.2.zip) · [측정·검증 결과](VALIDATION.md) · [전체 작업 기록](04.ligand.md)
+[**최신 버전 ZIP 다운로드 (main)**](https://github.com/jinstone2001-stack/Ligand-/archive/refs/heads/main.zip) · [4.3 고정 버전](https://github.com/jinstone2001-stack/Ligand-/archive/refs/heads/ver-4.3.zip) · [측정·검증 결과](VALIDATION.md) · [전체 작업 기록](04.ligand.md)
 
 ## 설치
 
@@ -54,7 +60,7 @@ conda activate tinoxo
 python TinOxoStudio.py --port 8888 --no-browser
 ```
 
-PC의 브라우저에서 HPC 터미널에 출력된 전체 주소를 엽니다. **X11 전달은 필요하지 않습니다.** 4.2는 SSH 접속을 감지하면 서버의 브라우저 자동 실행을 생략합니다. PC에 설치된 브라우저를 직접 여세요. 명시적으로 서버 쪽 브라우저를 열어야 할 때만 `--open-browser`를 사용합니다.
+PC의 브라우저에서 HPC 터미널에 출력된 전체 주소를 엽니다. **X11 전달은 필요하지 않습니다.** 자동 열기는 Python이 실행되는 컴퓨터의 기본 브라우저를 대상으로 합니다. 따라서 포트 전달로 PC 브라우저를 사용할 때는 위처럼 서버를 `--no-browser`로 실행하세요. 4.3은 SSH 환경 변수만으로 자동 열기를 생략하지 않습니다.
 
 ## 제공 기능
 
@@ -85,7 +91,7 @@ python -m unittest discover -s tests -v
 
 [검증 기록](VALIDATION.md)에는 HTTP/계산/DOM 검사와 실제 브라우저 화면 검증의 제한을 구분해 기록했습니다. [변경 기록](CHANGELOG.md) / [출처·의존성](THIRD_PARTY_NOTICES.md)
 
-[**ver-4.2 전체 소스 ZIP 다운로드**](https://github.com/jinstone2001-stack/Ligand-/archive/refs/heads/ver-4.2.zip) — 압축을 푼 폴더에서 실행하세요. `.py`만 복사하지 말고 `TinOxoWeb.py`, `web/`, `fonts/`도 함께 사용하세요.
+[**최신 main 전체 소스 ZIP 다운로드**](https://github.com/jinstone2001-stack/Ligand-/archive/refs/heads/main.zip) · [**ver-4.3 고정 버전 ZIP**](https://github.com/jinstone2001-stack/Ligand-/archive/refs/heads/ver-4.3.zip) — 압축을 푼 폴더에서 실행하세요. `.py`만 복사하지 말고 `TinOxoWeb.py`, `web/`, `fonts/`도 함께 사용하세요.
 
 ## 라이선스
 

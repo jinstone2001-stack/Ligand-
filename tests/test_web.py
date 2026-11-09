@@ -158,6 +158,63 @@ class LauncherTests(unittest.TestCase):
    with mock.patch.object(w.webbrowser,'open') as opener,mock.patch.object(w.threading,'Timer',side_effect=timer),mock.patch.object(w.LocalServer,'serve_forever',side_effect=KeyboardInterrupt):
     self.assertEqual(w.run(args),0)
    url=opener.call_args.args[0];self.assertRegex(url,r'^http://127\.0\.0\.1:[1-9][0-9]*/#token=[A-Za-z0-9_-]+$')
+ def test_browser_unavailable_prints_full_url_without_failing_launch(self):
+  import contextlib,io
+  with tempfile.TemporaryDirectory() as d:
+   args=SimpleNamespace(port=0,host='127.0.0.1',config_dir=d,project=None,fresh=True,no_browser=False)
+   output=io.StringIO()
+   def timer(delay,fn):return SimpleNamespace(start=fn,cancel=lambda:None)
+   with mock.patch.object(w.webbrowser,'open',return_value=False) as opener,mock.patch.object(w.threading,'Timer',side_effect=timer),mock.patch.object(w.LocalServer,'serve_forever',side_effect=KeyboardInterrupt),contextlib.redirect_stdout(output):
+    self.assertEqual(w.run(args),0)
+   self.assertIn('브라우저 자동 열기를 완료하지 못했습니다.',output.getvalue())
+   self.assertGreaterEqual(output.getvalue().count(opener.call_args.args[0]),2)
+ def test_browser_os_error_prints_full_url_without_failing_launch(self):
+  import contextlib,io
+  with tempfile.TemporaryDirectory() as d:
+   args=SimpleNamespace(port=0,host='127.0.0.1',config_dir=d,project=None,fresh=True,no_browser=False)
+   output=io.StringIO()
+   def timer(delay,fn):return SimpleNamespace(start=fn,cancel=lambda:None)
+   with mock.patch.object(w.webbrowser,'open',side_effect=OSError('desktop opener unavailable')) as opener,mock.patch.object(w.threading,'Timer',side_effect=timer),mock.patch.object(w.LocalServer,'serve_forever',side_effect=KeyboardInterrupt),contextlib.redirect_stdout(output):
+    self.assertEqual(w.run(args),0)
+   self.assertIn('브라우저 자동 열기 실패: desktop opener unavailable',output.getvalue())
+   self.assertGreaterEqual(output.getvalue().count(opener.call_args.args[0]),2)
+ def test_real_cli_with_ssh_opens_actual_server_url_by_default(self):
+  from urllib.parse import urlsplit,parse_qs
+  child='''from pathlib import Path
+import json,runpy,sys,webbrowser
+marker=Path(sys.argv[1]);app=sys.argv[2];workspace=sys.argv[3]
+def opener(url,new=0,autoraise=True):
+    marker.write_text(json.dumps(dict(url=url,new=new)),encoding="utf-8")
+    return True
+webbrowser.open=opener
+sys.argv=[app,"--port","0","--fresh","--config-dir",workspace]
+sys.path.insert(0,str(Path(app).parent))
+runpy.run_path(app,run_name="__main__")
+'''
+  for remote in ('SSH_CONNECTION','SSH_CLIENT'):
+   with self.subTest(variable=remote),tempfile.TemporaryDirectory() as d:
+    marker=Path(d)/'browser.json'
+    env={**os.environ,'DISPLAY':'','SSH_CONNECTION':'','SSH_CLIENT':'','PYTHONIOENCODING':'utf-8',remote:'client 123 server 22'}
+    process=subprocess.Popen([sys.executable,'-c',child,str(marker),str(Path(c.__file__).resolve()),d],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,encoding='utf-8',env=env)
+    try:
+     deadline=time.monotonic()+12
+     while not marker.exists() and process.poll() is None and time.monotonic()<deadline:time.sleep(.02)
+     self.assertTrue(marker.exists(),'default launch never requested a browser')
+     # The real Timer wrote the browser request. Retry while its small file finishes.
+     while True:
+      try:opened=json.loads(marker.read_text(encoding='utf-8'));break
+      except json.JSONDecodeError:
+       if time.monotonic()>=deadline:raise
+       time.sleep(.01)
+     parsed=urlsplit(opened['url']);token=parse_qs(parsed.fragment)['token'][0]
+     self.assertEqual(opened['new'],2)
+     conn=http.client.HTTPConnection(parsed.hostname,parsed.port,timeout=5)
+     try:
+      conn.request('GET','/api/state',headers={'X-Tinoxo-Token':token})
+      response=conn.getresponse();self.assertEqual(response.status,200)
+      self.assertEqual(json.loads(response.read())['version'],c.VERSION)
+     finally:conn.close()
+    finally:process.terminate();process.communicate(timeout=5)
  def test_real_cli_serves_selected_port_without_display(self):
   from urllib.parse import urlsplit,parse_qs
   with tempfile.TemporaryDirectory() as d:

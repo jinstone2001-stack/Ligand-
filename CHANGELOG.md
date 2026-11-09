@@ -1,5 +1,13 @@
 # Changes
 
+## 4.3.0 — 2026-11-09
+
+- Restore 4.1's default browser-opening behavior. In 4.2, `SSH_CONNECTION` or `SSH_CLIENT` silently suppressed the opener while the server still printed its URL. Only explicit `--no-browser` now disables automatic opening. Keep `--open-browser` accepted for compatibility.
+- Announce the automatic-open request and print the full URL if the OS opener returns false or raises a browser/OS error. Keep the Python server available for manual access.
+- Reproduce the 4.2 SSH path (URL printed, zero opener calls), cover both SSH variables and opt-out combinations, and exercise the real CLI/Timer/HTTP server with an opener recorder. The recorder verifies the request, not a visible desktop window.
+- Publish the release on `ver-4.3` and advance `main` to the same commit. Record the standing release rule in `AGENTS.md`; point the latest download at `main` and retain version-specific ZIP links.
+- Preserve the 4.2 rendering, chemistry, transport, history and asynchronous-save optimizations.
+
 ## 4.2.0 — 2026-11-07
 
 - Upload molecular world geometry once; rotate, pan and zoom using GPU uniforms. Cache attribute locations, selection buffers and projected picking points. Reduce interactive rendering detail/pixels, restore after release, add quality/frame controls and recover WebGL contexts. Keep UI text at browser resolution.

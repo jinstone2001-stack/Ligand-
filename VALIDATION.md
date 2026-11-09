@@ -1,4 +1,15 @@
-# Validation — version 4.2.0, 2026-11-07
+# Validation — version 4.3.0, 2026-11-09
+
+- The clarified report is that Python prints the address without an error but no browser appears. The 4.2 launcher has a specific SSH guard that skips `webbrowser.open`. A pre-fix harness with `SSH_CONNECTION` set printed the URL and made **zero opener calls**; the harness stops the server loop with a simulated KeyboardInterrupt.
+- Restore automatic opening unless `--no-browser` is explicit. `--open-browser` remains accepted for 4.2 command compatibility. Cover both `SSH_CONNECTION` and `SSH_CLIENT`, with default/explicit-open/explicit-opt-out combinations, and preserve the selected bound port and token in the URL.
+- **122 Python tests pass** on Python 3.13.5 / Tk 8.6 / RDKit 2026.09.1 / ASE 3.29.0, including all 16 optional Tk GUI tests on a local X11 display and the native EGL/GLES pixel checks. This is the 119-test suite plus three launcher regressions.
+- A real command-line subprocess for each SSH variable uses the actual Timer and HTTP server. An opener recorder captures the URL/new-tab request; an authenticated GET to that recorded URL returns the running 4.3 workspace. This verifies dispatch and server availability, **not an actual desktop browser window**.
+- Opener false returns and OSError are checked for the complete manual URL and a successful launcher return. Existing port selection, occupied-port rejection, `--no-browser`, save/history, chemistry and transport regressions still pass.
+- **22 DOM scenarios**, the 100-rotation viewer-cache regression, JavaScript syntax checks, `--check` and the versioned `--help` output pass. The renderer and chemistry optimizations are unchanged; the timing samples below remain the original 4.2 measurements.
+- Publish one tested source tree/commit to both `ver-4.3` and `main`. The user requires this for future releases; `AGENTS.md` records the policy. The latest ZIP points to `main`, and the version-specific ZIP stays available.
+- The user's actual environment variables and desktop browser were unavailable. The SSH guard is a reproduced regression matching the reported behavior; it does not establish that every browser-launch failure has the same cause. Real browser appearance/WebGL/FPS, the user's HPC/SSH/Windows session and Gaussian execution remain unverified.
+
+# Earlier 4.2.0 validation record — 2026-11-07
 
 - Full Python suite: **119 passing tests** on Python 3.13.5 / Tk 8.6 / RDKit 2026.09.1 / ASE 3.29.0, including the optional legacy GUI on a local X11 display. This adds 17 performance/correctness regressions and 2 native GLES pixel checks to the 100 existing checks. The browser server still starts without DISPLAY or Tk initialization.
 - **22 DOM integration scenarios** pass against the real Python HTTP API with jsdom 26. New checks preserve the model and unchanged coordinate/selection nodes after settings updates, serialize rapid edits without stale revisions, report completed background saves, and page geometry results while keeping row selection. Canvas is mocked in this suite.

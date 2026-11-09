@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Tin Oxo Studio 4.1 — local browser workspace and optional native editor.
+"""Tin Oxo Studio 4.3 — local browser workspace and optional native editor.
 Run: python TinOxoStudio.py
 Dependencies: Python >=3.10, numpy, scipy, rdkit, ase, Pillow.
 Web mode uses a browser. Optional --native uses Tk; neither mode needs Gaussian.
@@ -28,7 +28,7 @@ try:
 except ImportError as exc:
     raise SystemExit("ASE가 필요합니다. python -m pip install ase") from exc
 from PIL import Image, ImageDraw, ImageFont
-VERSION = "4.2.0"
+VERSION = "4.3.0"
 PT = Chem.GetPeriodicTable()
 SYMBOLS = chemical_symbols[1:119]
 METALS = set(SYMBOLS) - set("H He B C N O F Ne Si P S Cl Ar Ge As Se Br Kr Sb Te I Xe At Rn Ts Og".split())
@@ -2500,7 +2500,7 @@ VESTA는 원소별 색상 숫자만 참조했습니다. VESTA 실행파일은 �
 
 
 def main(argv=None):
-    parser=argparse.ArgumentParser(description='Tin Oxo Studio 4.1 — local browser workspace')
+    parser=argparse.ArgumentParser(description=f'Tin Oxo Studio {VERSION} — local browser workspace')
     parser.add_argument('project',nargs='?',help='project JSON, legacy HTML, XYZ, MOL/SDF, PDB, CIF')
     parser.add_argument('--check',action='store_true',help='check dependencies and core templates without DISPLAY')
     parser.add_argument('--export-core',choices=['3','6','12'],help='export bare core as XYZ without GUI')
@@ -2510,7 +2510,7 @@ def main(argv=None):
     parser.add_argument('--port',type=int,help='web port (prompt when omitted; default 8765; 0 selects a free port)')
     parser.add_argument('--host',default='127.0.0.1',help='bind address (default: 127.0.0.1)')
     parser.add_argument('--no-browser',action='store_true',help='print the URL without opening a browser (HPC/SSH)')
-    parser.add_argument('--open-browser',action='store_true',help='explicitly open a browser even in an SSH session')
+    parser.add_argument('--open-browser',action='store_true',help='open a browser (default; retained for 4.2 compatibility)')
     parser.add_argument('--fresh',action='store_true',help='start with a bare Sn12 core instead of recovering the web workspace')
     args=parser.parse_args(argv)
     if args.check:

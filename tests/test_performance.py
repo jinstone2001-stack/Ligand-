@@ -159,12 +159,19 @@ class TransportPerformanceTests(unittest.TestCase):
         body=json.dumps(dict(revision=0,known=known,settings={'theme':'light'}))
         conn.request('POST','/api/edit/settings',body=body,headers={**headers,'Content-Type':'application/json'});r=conn.getresponse();raw=r.read();data=json.loads(gzip.decompress(raw) if r.getheader('Content-Encoding') else raw)
         self.assertEqual(r.status,200);self.assertIn('settings',data);self.assertNotIn('project',data);conn.close()
-    def test_ssh_does_not_open_remote_browser_unless_explicit(self):
+    def test_ssh_opens_browser_by_default_and_no_browser_opts_out(self):
         args=SimpleNamespace(port=0,host='127.0.0.1',config_dir=self.tmp.name,project=None,fresh=True,no_browser=False)
         def timer(delay,fn):return SimpleNamespace(start=fn,cancel=lambda:None)
-        with mock.patch.dict(os.environ,{'SSH_CONNECTION':'client 123 server 22'}),mock.patch.object(w.webbrowser,'open') as opener,mock.patch.object(w.threading,'Timer',side_effect=timer),mock.patch.object(w.LocalServer,'serve_forever',side_effect=KeyboardInterrupt):
-            self.assertEqual(w.run(args),0);opener.assert_not_called()
-            args.open_browser=True;self.assertEqual(w.run(args),0);opener.assert_called_once()
+        for env in ({'SSH_CONNECTION':'client 123 server 22','SSH_CLIENT':''},{'SSH_CONNECTION':'','SSH_CLIENT':'client 123 22'}):
+            for explicit,no_browser in ((False,False),(True,False),(False,True),(True,True)):
+                with self.subTest(env=env,open_browser=explicit,no_browser=no_browser):
+                    args.open_browser=explicit;args.no_browser=no_browser
+                    with mock.patch.dict(os.environ,env),mock.patch.object(w.webbrowser,'open',return_value=True) as opener,mock.patch.object(w.threading,'Timer',side_effect=timer),mock.patch.object(w.LocalServer,'serve_forever',side_effect=KeyboardInterrupt):
+                        self.assertEqual(w.run(args),0)
+                    if no_browser:opener.assert_not_called()
+                    else:
+                        opener.assert_called_once()
+                        self.assertRegex(opener.call_args.args[0],r'^http://127\.0\.0\.1:[1-9][0-9]*/#token=[A-Za-z0-9_-]+$')
 
 
 if __name__=='__main__':unittest.main()
