@@ -1,4 +1,22 @@
-# Validation — version 5.1.0, 2026-11-09
+# Validation — version 5.2.0, 2026-11-09
+
+Default launch remains the native Tk/X11 editor. This release adds a geometric exterior-placement rule before the existing contact score is used.
+
+- **169 Python tests pass without skips** on the existing Python 3.13.5 / Tk 8.6 / RDKit 2026.09.1 / ASE 3.29.0 / NumPy 2.2.4 / SciPy 1.15.3 environment. This adds twelve geometry/attachment/API regressions and one native GUI regression to v5.1's 156 tests.
+- Core centers use mass-weighted core atoms only, including explicit isotopes. Tests verify that a distant heavy ligand cannot shift the center, that a second disconnected core cannot shift the selected host's frame, and that translated/rotated planar envelopes behave consistently.
+- Atom and analytic bond/convex-envelope intersection tests reject an empty-cavity crossing even when both bond endpoints are outside. Organic-parent attachment bonds are checked too. A 0.05 Å interior tolerance handles face touches; planar cores use +/-0.75 Å thickness and line/point cores a finite box. The reduced SVD avoids a quadratic-size matrix for large core atom lists.
+- Every R site of Sn3/Sn6/Sn12 is tested with hexyl, along with generic Sn attachment and all six prepared Sn12 OH sites. New atoms/bonds remain outside the envelope, attachment vectors point outward, the requested 2.15 Å Sn-C length is preserved and core coordinates remain exact. L/P long-chain bridges preserve internal pair distances to 1e-10 Å and retain donor fits below 0.1 Å in the fixtures.
+- Saved inward slot directions are corrected during automatic reattachment. Explicit inward manual vectors are rejected. An impossible pose search or cancellation restores old ligands and core H, not just coordinates. No-core organic attachment retains the local-valence path. HTTP job failure preserves revision/history and a successful native twelve-ligand example can be undone in one step.
+- A comparison fixture with a hollow cubic core and exterior crowding reproduces the v5.1 problem: the anchor's radial projection was already outward (+0.636 Å), but part of the folded hexyl ligand entered the envelope. v5.2 rejects those poses and selects an exterior body (+0.817 Å anchor projection). This is a constructed geometric regression, not the user's unavailable project. A separate 63-case set of ordinary bare-template Sn attachments was already exterior in both versions.
+- Exterior validity is checked before contact scoring. Contact counts can therefore be higher than an invalid inward candidate's count; exterior placement does not guarantee zero contacts. The dense/sparse contact score equivalence tests still pass, and the reference full-pose search agrees with the optimized scorer after invalid candidates are excluded.
+- **29 DOM integration scenarios pass** with the real Python API and jsdom 26. The 100-rotation viewer-cache regression, JavaScript syntax checks, `--check` and `--help` pass. Native GUI checks include the exterior example, progress and undo. The X11 exterior example and direction help were visually inspected; browser Canvas remains mocked.
+- Extracted source dependencies and all SHA-256 manifest entries are checked before publication. The new `TinOxoPlacement.py` must ship with the rest of the program.
+
+The envelope is a conservative geometric model built from nonH core atom centers, not an electron-density surface or an additional force-field term. Initial generation and legacy automatic rigid rotation use it. Separate force-field/scoped optimizations retain their existing models and constraints. Bridge donor coordinates are retained from the initial rigid fit; the chosen donor/center RMSD is recomputed. New placement metadata records the core mass center, core IDs, envelope method and accepted/rejected pose counts.
+
+The user's actual failing project, HPC/X11 session and PC clipboard bridge were unavailable. No remote FPS, browser appearance/WebGL or Gaussian execution claim is made. Re-run using the commands in the earlier records below.
+
+# Earlier 5.1.0 validation record — 2026-11-09
 
 Default UI remains Python/Tk/X11. This release fixes the reproduced UFF model-preparation error and makes the native calculation panel compact.
 

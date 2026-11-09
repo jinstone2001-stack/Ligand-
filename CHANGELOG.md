@@ -1,5 +1,13 @@
 # Changes
 
+## 5.2.0 — 2026-11-09
+
+- Generate core-bound ligands in an exterior cone based on the mass-weighted center of the connected core, excluding existing ligands and respecting explicit isotope masses. Do not reuse saved inward directions during automatic reattachment.
+- Reject poses with new ligand atoms or internal bond segments inside a geometric convex core envelope, including empty cavity crossings. Check organic-parent attachment bonds too. Keep local valence placement for structures without a core.
+- Preserve bridge donor positions while searching rigid exterior orientations; retain internal molecular shape and report the selected fit RMSD. Explicit inward manual vectors are rejected with guidance.
+- Restore the complete input structure, including old slots and removed H, when placement fails or is cancelled. Apply the interior check to legacy automatic rigid rotation as well. Store placement diagnostics with the slot.
+- Retain native X11 defaults and the compact 5.1 UI; explain the direction policy through `(?)` help. Add mass/frame, cavity/bond, all core-site, bridge, rollback, HTTP and native GUI regressions.
+
 ## 5.1.0 — 2026-11-09
 
 - Replace long native calculation explanations with `(?)` hover help, including click and keyboard access. Use compact controls so the default X11 calculation panel fits one 1600×1000 screen. Keep scrolling for smaller screens or larger fonts.

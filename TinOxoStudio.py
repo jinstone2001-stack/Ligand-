@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Tin Oxo Studio 5.1 — native Tk/X11 editor, optional local browser workspace.
+"""Tin Oxo Studio 5.2 — native Tk/X11 editor, optional local browser workspace.
 Run: python TinOxoStudio.py
 Dependencies: Python >=3.10, numpy, scipy, rdkit, ase, Pillow.
 Default launch uses Tk/X11. Explicit --web uses a browser; neither needs Gaussian.
@@ -28,8 +28,9 @@ try:
 except ImportError as exc:
     raise SystemExit("ASE가 필요합니다. python -m pip install ase") from exc
 from PIL import Image, ImageDraw, ImageFont
-VERSION = "5.1.0"
+VERSION = "5.2.0"
 from TinOxoOptimize import SCOPES, scope_plan, minimize_coordinates, ContactObjective
+from TinOxoPlacement import CorePlacement
 PT = Chem.GetPeriodicTable()
 SYMBOLS = chemical_symbols[1:119]
 METALS = set(SYMBOLS) - set("H He B C N O F Ne Si P S Cl Ar Ge As Se Br Kr Sb Te I Xe At Rn Ts Og".split())
@@ -159,7 +160,7 @@ def delete_atoms(p,ids):
         if not set(s.get('sn',[]))<=alive: continue
         s['ligandIds']=[i for i in s.get('ligandIds',[]) if i in alive]
         if s.get('smiles') and not s['ligandIds']:
-            for k in ('smiles','anchor','donorIds','centerAtom','fragmentCharge','attachmentIndex'):s.pop(k,None)
+            for k in ('smiles','anchor','donorIds','centerAtom','fragmentCharge','attachmentIndex','placement'):s.pop(k,None)
             if s.get('custom'):continue
         slots.append(s)
     p['slots']=slots
@@ -178,7 +179,7 @@ def clear_slot(p,slot_id):
     p['slots']=[s for s in p['slots'] if s['id'] not in groups or not s.get('custom')]
     for s in p['slots']:
         if s['id']==slot_id:
-            for k in ('smiles','ligandIds','anchor','donorIds','centerAtom','fragmentCharge','resonance','attachmentIndex'):
+            for k in ('smiles','ligandIds','anchor','donorIds','centerAtom','fragmentCharge','resonance','attachmentIndex','placement'):
                 s.pop(k,None)
 
 def excluded_pairs(p):
@@ -532,6 +533,15 @@ def outward_direction(p,parent):
 
 def attach_fragment(p,smiles,parent=None,slot_id=None,mode='covalent',length=None,direction=None,
                     replace_h=True,ff_choice='MMFF94',cleanup=True,cancel=None,attachment_index=None,fragment_cache=None,progress=None):
+    # A failed exterior-pose search must not erase an old slot or its OH/H.
+    before=clone(p)
+    try:return _attach_fragment(p,smiles,parent,slot_id,mode,length,direction,replace_h,ff_choice,cleanup,cancel,attachment_index,fragment_cache,progress)
+    except Exception:
+        p.clear();p.update(before);raise
+
+
+def _attach_fragment(p,smiles,parent=None,slot_id=None,mode='covalent',length=None,direction=None,
+                    replace_h=True,ff_choice='MMFF94',cleanup=True,cancel=None,attachment_index=None,fragment_cache=None,progress=None):
     slot=next((s for s in p['slots'] if s['id']==slot_id),None) if slot_id else None
     if slot_id and slot is None:raise ValueError('결합 자리가 없습니다.')
     if slot:
@@ -570,12 +580,25 @@ def attach_fragment(p,smiles,parent=None,slot_id=None,mode='covalent',length=Non
     if kind in ('L','P'):
         src=np.array([points[fi[i]] for i in frag['donors']]+[points[fi[frag['center']]]])
         target=np.array(slot['donors']+[slot['center']]);r,xc,yc=rigid_fit(src,target)
-        fitted=(points-xc)@r+yc
-        residual=float(np.sqrt(np.mean(np.sum(((src-xc)@r+yc-target)**2,axis=1))))
-        slot['fitRMSD']=residual
-        for atom,rp in zip(new_atoms,fitted):set_xyz(atom,rp)
+        initial=(points-xc)@r+yc
         for host,donor in zip(parents,frag['donors']):
             new_bonds.append({'a':imap[donor],'b':host,'order':1.,'kind':'coordinate','source':'explicit bridge'})
+        guard=CorePlacement(p,parents,new_atoms,new_bonds);scorer=PlacementScorer(p,new_atoms,new_bonds)
+        donor_ix=[fi[i] for i in frag['donors']];origin=initial[donor_ix[0]];axis=initial[donor_ix[1]]-origin
+        best=None;accepted=0;rejected=0
+        for theta in np.linspace(0,2*math.pi,36,endpoint=False):
+            if cancel and cancel.is_set():raise InterruptedError('부착을 취소했습니다.')
+            fitted=(initial-origin)@axis_rotation(axis,theta).T+origin
+            if not guard.safe(fitted):rejected+=1;continue
+            accepted+=1
+            fit=float(np.mean(np.sum((fitted[[fi[i] for i in frag['donors']]+[fi[frag['center']]]]-target)**2,axis=1)))
+            score=scorer.score(fitted)+50*fit
+            if best is None or score<best[0]:best=(score,fitted.copy(),fit)
+            if not cleanup and theta==0:break
+        if best is None:raise ValueError('코어 내부를 피하면서 두 donor 위치를 유지하는 가교 배치를 찾지 못했습니다. 연결 원자나 리간드 구조를 바꿔 다시 시도하세요.')
+        slot['fitRMSD']=math.sqrt(best[2])
+        for atom,rp in zip(new_atoms,best[1]):set_xyz(atom,rp)
+        slot['placement']={**guard.record(),'acceptedPoses':accepted,'rejectedPoses':rejected}
         slot['donorIds']=[imap[i] for i in frag['donors']];slot['centerAtom']=imap[frag['center']]
     else:
         parent=parents[0];parent_xyz=xyz(a[parent]);anchor_xyz=points[fi[frag['anchor']]]
@@ -584,13 +607,28 @@ def attach_fragment(p,smiles,parent=None,slot_id=None,mode='covalent',length=Non
         preferred=direction if direction is not None else slot.get('direction')
         if preferred is None:preferred=p['metadata'].get('hydroxoDirections',{}).get(str(parent))
         preferred=unit(preferred if preferred is not None else outward_direction(p,parent))
-        dirs=[preferred]
-        if kind=='A' and direction is None:
-            for k in range(20):
-                z=1-2*(k+.5)/20;phi=k*math.pi*(3-math.sqrt(5));dirs.append(np.array([math.sqrt(1-z*z)*math.cos(phi),math.sqrt(1-z*z)*math.sin(phi),z]))
         root=imap[frag['anchor']];new_bonds.append({'a':root if mode=='coordinate' else parent,'b':parent if mode=='coordinate' else root,
             'order':1.,'kind':mode,'source':'explicit attachment'})
-        best=None;scorer=PlacementScorer(p,new_atoms,new_bonds)
+        guard=CorePlacement(p,parents,new_atoms,new_bonds);radial=guard.outward(parent_xyz)
+        core_host=bool(a[parent].get('core'))
+        if core_host and radial is None:raise ValueError('부착점이 코어 무게중심과 같아 외향 방향을 정할 수 없습니다. 코어 외곽 원자를 선택하세요.')
+        if direction is not None:
+            manual=np.asarray(direction,dtype=float)
+            if manual.shape!=(3,) or not np.isfinite(manual).all() or np.linalg.norm(manual)<1.e-8:raise ValueError('방향은 0이 아닌 유한한 3차원 벡터여야 합니다.')
+            if core_host and np.dot(preferred,radial)<-1.e-8:raise ValueError('지정한 방향이 코어 무게중심을 향합니다. 자동 또는 코어 바깥쪽 방향을 선택하세요.')
+        dirs=[preferred]
+        if core_host and direction is None:
+            # Radial first, then only directions in the exterior cone. Old saved
+            # inward directions never override this policy when re-editing.
+            dirs=[radial];preferred=radial
+            rotation=rotate_matrix((0,0,1),radial)
+            for k in range(20):
+                z=.2+.8*(k+.5)/20;phi=k*math.pi*(3-math.sqrt(5))
+                dirs.append(rotation@np.array([math.sqrt(1-z*z)*math.cos(phi),math.sqrt(1-z*z)*math.sin(phi),z]))
+        elif kind=='A' and direction is None:
+            for k in range(20):
+                z=1-2*(k+.5)/20;phi=k*math.pi*(3-math.sqrt(5));dirs.append(np.array([math.sqrt(1-z*z)*math.cos(phi),math.sqrt(1-z*z)*math.sin(phi),z]))
+        best=None;scorer=PlacementScorer(p,new_atoms,new_bonds);accepted=0;rejected=0
         neighbors=adjacency(p)[parent];neighbor_dirs=[unit(xyz(a[n])-parent_xyz) for n in neighbors]
         for di,d in enumerate(dirs):
             if progress:progress(dict(message=f'부착 배향 {di+1}/{len(dirs)} 검사',percent=70+25*di/len(dirs)))
@@ -600,10 +638,15 @@ def attach_fragment(p,smiles,parent=None,slot_id=None,mode='covalent',length=Non
             for theta in np.linspace(0,2*math.pi,12 if cleanup else 1,endpoint=False):
                 if cancel and cancel.is_set():raise InterruptedError('부착을 취소했습니다.')
                 fitted=base@axis_rotation(d,theta).T+parent_xyz+length*d
+                if not guard.safe(fitted):rejected+=1;continue
+                accepted+=1
                 score=scorer.score(fitted)+angle_penalty+.02*(1-float(np.dot(d,preferred)))
                 if best is None or score<best[0]:best=(score,fitted.copy(),d.copy())
+        if best is None:raise ValueError('코어 내부로 들어가지 않는 리간드 배치를 찾지 못했습니다. 연결 원자나 리간드 구조를 바꿔 다시 시도하세요.')
         for atom,rp in zip(new_atoms,best[1]):set_xyz(atom,rp)
         slot.update(bondLength=length,direction=best[2].tolist(),anchor=root,mode=mode)
+        slot['placement']={**guard.record(),'outwardVector':radial.tolist() if radial is not None else None,
+            'outwardDirectionApplied':core_host,'acceptedPoses':accepted,'rejectedPoses':rejected}
     p['atoms'].extend(new_atoms);p['bonds'].extend(new_bonds)
     slot.update(smiles=smiles,ligandIds=[v['id'] for v in new_atoms],anchor=imap[frag['anchor']],
         attachmentIndex=frag['attachmentIndex'],
@@ -779,10 +822,12 @@ def cleanup_project(p,cancel=None,scope=None,steps=500,progress=None,respect_fix
         environment=dict(atoms=[v for v in p['atoms'] if v['id'] not in ids],bonds=[b for b in p['bonds'] if not({b['a'],b['b']}&ids)],metadata=p['metadata'])
         moving=[a[i] for i in sorted(ids)];moving_bonds=[b for b in p['bonds'] if {b['a'],b['b']}&ids]
         scorer=PlacementScorer(environment,moving,moving_bonds)
+        guard=CorePlacement(p,[host],moving,moving_bonds)
         best_points=points.copy();best=float('inf')
         for theta in np.linspace(0,2*math.pi,36,endpoint=False):
             if cancel and cancel.is_set():raise InterruptedError('겹침 정리를 취소했습니다.')
             candidate=(points-origin)@axis_rotation(axis,theta).T+origin
+            if not guard.safe(candidate):continue
             val=scorer.score(candidate)
             if val<best:best=val;best_points=candidate.copy()
         for i,r in zip(sorted(ids),best_points):set_xyz(a[i],r)
@@ -2221,7 +2266,9 @@ class NativeApp:
         grid=ttk.Frame(frame);grid.pack(fill='x');values={}
         labels=[('대상','target'),('리간드 SMILES','smiles'),('결합 방식','mode'),('길이 Å','length'),('방향','direction')]
         for k,(label,key) in enumerate(labels):
-            ttk.Label(grid,text=label).grid(row=0,column=k,sticky='w');values[key]=tk.StringVar()
+            heading=ttk.Frame(grid);heading.grid(row=0,column=k,sticky='w')
+            ttk.Label(heading,text=label).pack(side='left');values[key]=tk.StringVar()
+            if key=='direction':self.help_icon(heading,'자동: 코어 원자만의 질량 가중 무게중심에서 바깥으로 향하는 방향을 탐색합니다.\n코어 내부로 들어가는 새 원자나 리간드 내부 결합 경로는 거부합니다. 코어에 붙이는 수동 벡터도 안쪽을 향하면 적용하지 않습니다.\nL/P 가교는 두 donor 위치를 유지하며 외부 배치를 찾습니다. 코어 표시가 없는 구조는 국소 결합 방향을 사용합니다.').pack(side='left',padx=4)
         targets=['선택 원자 모두']+[f"{a[i]['element']}{i}" for i in hosts]
         if slot_id:targets=[slot_id]
         values['target'].set(targets[0]);values['smiles'].set(initial);values['mode'].set(initial_mode if initial_mode!='bridge' else 'coordinate');values['direction'].set('자동')
@@ -2723,7 +2770,7 @@ class NativeApp:
         self.label(frame,'XYZ에는 결합 정보가 없고 PDB에는 결합차수가 없습니다. 전체 편집 정보를 보존하려면 프로젝트 JSON을 함께 저장하세요. HTML은 기존 웹 기능을 실행하며 새로운 Python 기능은 .py에서 실행합니다.','Muted.TLabel',600);self.apply_theme()
     def help_dialog(self):
         win=self.dialog('사용 안내 / 과학적 범위 / 출처','1000x780');frame=self.frame(win);frame.pack(fill='both',expand=True);text=self.textbox(frame,height=28)
-        guide='''Tin Oxo Studio 5.1 · Python/Tk/X11
+        guide='''Tin Oxo Studio 5.2 · Python/Tk/X11
 
 실행: python TinOxoStudio.py
 서버 Python에 Tk, RDKit, ASE, NumPy, SciPy, Pillow가 필요합니다.
@@ -2741,6 +2788,7 @@ DISPLAY는 SSH가 설정한 값을 유지합니다. 이 앱은 OpenGL을 사용�
 공명식: Lewis 표현과 방향족/공액 결합을 표시합니다. 열거식이 1개라도 공명이 없다는 뜻은 아닙니다. UFF 초기 생성 시 고립 카복실레이트/니트로의 동등한 말단 O에는 MMFF 평형거리를 기준으로 거리 제약을 추가하고 기록합니다. 열거 평균은 전자구조 결합차수가 아닙니다.
 비대칭 금속 배위 환경에서 두 C–O 길이가 반드시 같아야 하는 것은 아닙니다.
 가교 부착: 유기 구조를 늘여 맞추지 않고 문헌 donor/center 위치로 강체 정렬합니다. fitRMSD를 보고서에서 확인하세요.
+리간드 배치: 코어 원자만의 질량 가중 무게중심에서 외향 방향을 탐색합니다. 코어 내부로 들어가는 원자/리간드 내부 결합은 거부하고 불가능하면 원본을 유지합니다. 코어 없는 구조는 국소 배치를 사용합니다.
 리간드 최적화: 코어/부착 경계 고정, 끊은 공유결합을 H로 막은 조각의 MMFF94 또는 UFF를 적용합니다.
 그 에너지는 클러스터 총에너지가 아니며 전체 최적화와 직접 비교하지 않습니다.
 계산 범위: 코어만 고정 / 모든 원자 움직이기 / 코어만 움직이기 / 코어·리간드 모양만 고정.

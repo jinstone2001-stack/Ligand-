@@ -145,6 +145,15 @@ class NativeV5Tests(unittest.TestCase):
                 else:widget.delete(0,'end');widget.insert(0,'stale');widget.selection_range(0,'end')
                 widget.event_generate('<<Paste>>');self.root.update()
                 self.assertEqual(widget.get('1.0','end-1c') if isinstance(widget,c.tk.Text) else widget.get(),value)
+    def test_example_creation_uses_exterior_ligands_and_one_step_undo(self):
+        before=c.clone(self.app.project);self.app.core_var.set('12');self.app.ff_var.set('MMFF94')
+        self.app.example();self.finish()
+        for slot in self.app.project['slots']:
+            atoms=c.index_atoms(self.app.project);new=[atoms[i] for i in slot['ligandIds']]
+            guard=c.CorePlacement(self.app.project,slot['sn'],new,self.app.project['bonds'])
+            self.assertTrue(guard.safe([c.xyz(a) for a in new]))
+            self.assertEqual(slot['placement']['policy'],'core-outward-5.2')
+        self.assertEqual(self.app.job_percent.get(),100);self.app.undo();self.assertEqual(self.app.project,before)
     def test_native_cleanup_scope_progress_rigidity_and_undo(self):
         c.attach_fragment(self.app.project,'[*:1]CCC',slot_id='R1',cleanup=False)
         before=c.clone(self.app.project);self.app.scope_var.set(c.SCOPES['rigid']);self.app.cleanup();self.finish()

@@ -45,3 +45,10 @@ mock GL calls or native EGL pixels as a real user-browser or FPS check.
 - UFF provides a standard Sn3 type. Prepare high-coordinate Sn on a calculation copy without imposing the ordinary neutral Sn valence-four check; retain strict checks for other atoms and preserve the saved graph, charges and radicals.
 - MMFF94 has no Sn type. GUI/API fallback to UFF must be controlled by an explicit option and record requested and actual force fields. The direct engine API stays strict unless fallback is enabled. Never call a UFF result MMFF94.
 - Keep separate ligand-only optimization in the selected force field. General UFF parameters are not a fitted Sn oxo cluster model.
+
+## Ligand placement contract
+
+- Use core-only mass centers, not the whole ligand-bearing structure. Select the connected core belonging to the hosts and respect isotope masses.
+- Automatic core-bound directions must face outward. Reject interior atoms/bond crossings before contact scoring, including organic-parent attachment bonds. Keep explicit core-to-donor boundaries distinct.
+- Preserve molecular shape and bridge donor positions. Report inability to find a safe pose instead of bending bonds or inserting an inward fallback.
+- Failed/cancelled attachment must restore the complete input project. Record placement diagnostics, and keep initial placement rules distinct from force-field constraints.
