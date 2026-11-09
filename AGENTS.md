@@ -22,7 +22,7 @@ The user requires **every new published version to become the latest `main`**.
 
 ## Launcher contract
 
-- The user explicitly changed v5.0 to a **native X11 GUI release**, like v4.0.
+- The user explicitly changed v5.x to a **native X11 GUI release**, like v4.0.
   A normal `python TinOxoStudio.py` launch must open Tk, never a browser/server.
 - Keep `--native` as an alias for the default. Only `--web` opts into the browser
   interface. Reject web-specific flags without `--web` with clear guidance.
@@ -39,3 +39,9 @@ Run `python TinOxoStudio.py --check` and the relevant Python regressions before
 publishing. Run the DOM and viewer-cache checks when web code changes. Optional
 Tk GUI tests need a working display. Do not describe an OS opener mock, jsdom,
 mock GL calls or native EGL pixels as a real user-browser or FPS check.
+
+## Force-field model contract
+
+- UFF provides a standard Sn3 type. Prepare high-coordinate Sn on a calculation copy without imposing the ordinary neutral Sn valence-four check; retain strict checks for other atoms and preserve the saved graph, charges and radicals.
+- MMFF94 has no Sn type. GUI/API fallback to UFF must be controlled by an explicit option and record requested and actual force fields. The direct engine API stays strict unless fallback is enabled. Never call a UFF result MMFF94.
+- Keep separate ligand-only optimization in the selected force field. General UFF parameters are not a fitted Sn oxo cluster model.

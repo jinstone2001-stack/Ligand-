@@ -454,7 +454,7 @@ $("respectFixed").dispatchEvent(new win.Event("change"));
 const manualCount = scopeProject.atoms.filter(a => a.fixed).length;
 await until(() => $("scopeCounts").textContent.includes(`고정 ${manualCount}`), "manual fixed override");
 set($("scope"), "rigid");
-assert.ok($("scopeDescription").textContent.includes("강체") || $("scopeDescription").textContent.includes("회전·이동"));
+assert.ok($("scopeDescription").dataset.help.includes("회전·이동"));
 passed("four scope previews, atom selection and manual-fixed override");
 await action("contactSettings");
 set($("contactMode"), "minimum");
@@ -514,6 +514,26 @@ for (const a of beforeCleanup.atoms.filter(a => !a.core)) {
 assert.equal($("calculationResult").classList.contains("hidden"), false);
 assert.ok($("calculationResult").textContent.includes("임의 단위"));
 passed("cleanup receives scope and displays percentage, units and completion result");
+assert.equal($("jobProgress").closest(".viewer-panel"), $("viewport").closest(".viewer-panel"));
+assert.ok($("jobProgress").compareDocumentPosition($("viewport")) & win.Node.DOCUMENT_POSITION_FOLLOWING);
+assert.equal($("scopeDescription").textContent, "(?)");
+assert.ok($("slotKindsTip").dataset.help.includes("R1: Sn"));
+assert.ok($("slotKindsTip").dataset.help.includes("O–C–O"));
+$("slotKindsTip").dispatchEvent(new win.Event("focusin", { bubbles: true }));
+assert.ok($("tinoxoHelp").textContent.includes("R1: Sn"));
+$("slotKindsTip").dispatchEvent(new win.Event("focusout", { bubbles: true }));
+assert.equal($("tinoxoHelp"), null);
+passed("compact help annotations and progress above the viewer");
+set($("ff"), "MMFF94");$("uffFallback").checked = true;
+set($("scope"), "core_fixed");set($("optSteps"), "15");
+await action("optimize");
+await until(async () => (await current()).job?.status === "done", "Sn MMFF to UFF optimization", 20000);
+await until(() => $("calculationResult").textContent.includes("요청 MMFF94 → 적용 UFF"), "actual force field shown");
+latest = await current();
+assert.equal(latest.job.results[0].forcefield, "UFF");
+assert.equal(latest.job.results[0].requestedForcefield, "MMFF94");
+assert.equal(latest.job.results[0].scope, "core_fixed");
+passed("Sn optimization uses enabled UFF fallback and labels the actual force field");
 assert.deepEqual(errors, []);
 console.log(
   `DOM integration: ${count} scenarios passed (Canvas mocked; browser/GPU not tested).`,

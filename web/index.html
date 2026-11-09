@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Tin Oxo Studio 5.0.0</title>
+    <title>Tin Oxo Studio 5.1.0</title>
     <link rel="stylesheet" href="/web/style.css" />
     <script type="module" src="/web/app.js"></script>
   </head>
@@ -16,7 +16,7 @@
         <span class="brandmark">Sn</span>
         <div>
           <strong>TIN OXO <b>STUDIO</b></strong
-          ><small>MOLECULAR WORKSPACE <span>5.0.0</span></small>
+          ><small>MOLECULAR WORKSPACE <span>5.1.0</span></small>
         </div>
       </div>
       <div class="top-actions">
@@ -66,7 +66,7 @@
             ＋ 선택 원자에 리간드 붙이기</button
           ><button data-action="library" class="wide">
             범용 리간드 / 내 SMILES</button
-          ><button data-action="slots" class="wide">R / L / P 자리 편집</button>
+          ><div class="inline"><button data-action="slots" class="wide">R / L / P 자리 편집</button><span class="help-tip" tabindex="0" role="note" aria-label="자세한 도움말" id="slotKindsTip" data-help="">(?)</span></div>
           <div class="info-box">
             <strong>결합 원자를 직접 선택하세요</strong>
             <p>
@@ -98,31 +98,31 @@
               <option value="rigid">코어·리간드 모양만 고정</option>
             </select></label>
             <label class="check-row"><input type="checkbox" id="respectFixed">원자별 고정도 추가 적용</label>
-            <p id="scopeDescription" class="hint"></p>
+            <span class="help-tip" tabindex="0" role="note" aria-label="자세한 도움말" id="scopeDescription" data-help="">(?)</span>
             <strong id="scopeCounts" aria-live="polite"></strong>
             <div class="inline"><button data-action="selectMoving">이동 원자 선택</button><button data-action="selectFrozen">고정 원자 선택</button></div>
             <label>최대 반복 수<input id="optSteps" type="number" value="500" min="1" max="10000" step="1"></label>
           </div>
           <section class="calc-card forcefield-card" aria-labelledby="ffHeading">
             <h3 id="ffHeading">힘장 최적화</h3>
-            <p class="calc-purpose">MMFF94 / UFF 에너지 최소화</p>
+
             <label>힘장<select id="ff"><option>MMFF94</option><option>UFF</option></select></label>
-            <button data-action="optimize" class="primary wide">선택 범위로 힘장 최적화</button>
-            <p class="hint">위 범위 적용 · 전체 구조의 파라미터 지원을 검사합니다. Sn 배위 환경이 미지원이면 이유를 표시합니다.</p>
-            <details><summary>Sn 파라미터 없이 리간드 내부만 정리</summary>
+            <label class="check-row"><input type="checkbox" id="uffFallback" checked>MMFF 미지원 시 UFF 사용 <span class="help-tip" tabindex="0" role="note" aria-label="자세한 도움말" data-help="전체 구조에서 MMFF94 원자형이 없으면 UFF로 계산합니다. 실제 사용한 힘장은 결과에 표시합니다. 끄면 선택한 힘장만 사용합니다.">(?)</span></label><button data-action="optimize" class="primary wide">선택 범위로 힘장 최적화</button>
+            <span class="help-tip" tabindex="0" role="note" aria-label="자세한 도움말" data-help="위 범위 적용. UFF 표준 Sn3 원자형을 사용합니다. 다배위 Sn의 원자가 검사 경로를 분리하고 유기 원자는 검증합니다. 힘장 에너지는 kcal/mol이며 클러스터 전용 피팅은 아닙니다.">(?)</span>
+            <details><summary>별도 리간드 내부 최적화</summary>
               <p class="hint">별도 범위: 코어·경계 원자·개별 고정을 유지하는 H-capped 조각 계산. 위 범위 선택을 적용하지 않습니다. 에너지는 고립 조각의 값입니다.</p>
               <button data-action="optimizeFragments" class="wide">리간드 내부만 최적화 (4.x 방식)</button>
             </details>
           </section>
           <section class="calc-card contact-card" aria-labelledby="cleanupHeading">
             <h3 id="cleanupHeading">겹침 줄이기</h3>
-            <p class="calc-purpose">비결합 접촉 · 기하학적 정리</p>
+
             <button data-action="cleanup" class="wide">선택 범위로 겹침 줄이기</button>
-            <p class="hint">위 범위 적용 · 힘장을 사용하지 않습니다. 현재 접촉 기준과 초기 결합 형태를 고려합니다. 모양 고정 모드는 각 조각의 내부 형태를 정확히 유지합니다.</p>
+            <span class="help-tip" tabindex="0" role="note" aria-label="자세한 도움말" data-help="위 범위 적용. 힘장 없이 접촉 벌점과 초기 결합/1–3 거리 및 약한 변위 제약으로 정리합니다. 점수는 임의 단위이며 모양 고정은 내부 형태를 보존합니다.">(?)</span>
             <button data-action="contactSettings" class="text-button wide">접촉 검사 기준 조절</button>
           </section>
-          <p class="hint">MMFF/UFF와 겹침 정리는 초기 구조 준비용입니다.</p>
-          <div id="calculationResult" class="info-box hidden" aria-live="polite"></div>
+
+
           <div class="section-title">
             <span>02</span>
             <h2>검사 / 기하</h2>
@@ -171,7 +171,9 @@
             <button data-action="undo" id="undo">↶ 실행 취소</button
             ><button data-action="redo" id="redo">↷ 복원</button>
           </div>
-          <div id="viewport">
+          <div class="viewer-job"><div id="jobProgress" class="job-progress hidden" aria-live="polite"><progress id="jobBar" max="100" value="0"></progress><strong id="jobPercent">0%</strong><span id="jobStatus"></span><small id="jobElapsed"></small></div
+      ><button data-action="cancel" id="cancelJob" class="hidden">
+        작업 취소</button><div id="calculationResult" class="info-box hidden" aria-live="polite"></div></div><div id="viewport">
             <canvas
               id="molecule"
               aria-label="회전 및 원자 선택이 가능한 3D 분자 구조"
@@ -277,9 +279,6 @@
     </main>
     <footer>
       <span id="status"><i></i> 준비됨</span><span id="saveStatus"></span
-      ><div id="jobProgress" class="job-progress hidden" aria-live="polite"><progress id="jobBar" max="100" value="0"></progress><strong id="jobPercent">0%</strong><span id="jobStatus"></span><small id="jobElapsed"></small></div
-      ><button data-action="cancel" id="cancelJob" class="hidden">
-        작업 취소</button
       ><span class="footer-note">Python chemistry · Browser workspace</span>
     </footer>
     <input

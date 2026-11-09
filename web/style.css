@@ -1013,3 +1013,10 @@ a {
 }
 
 #calculationResult { white-space: pre-line; overflow-wrap: anywhere; }
+.help-tip { position: relative; display: inline-block; color: var(--accent); cursor: help; font-size: .85rem; padding: 2px 4px; flex: 0 0 auto; }
+.floating-help { position: fixed; z-index: 2147483000; width: min(350px, calc(100vw - 24px)); padding: 12px; background: var(--panel); color: var(--fg); border: 1px solid var(--accent); border-radius: 7px; box-shadow: 0 6px 24px #0006; white-space: pre-line; line-height: 1.55; font-size: .85rem; }
+.viewer-job { padding: 6px 12px; border-top: 1px solid var(--border); border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.viewer-job .job-progress { flex: 1; }
+.viewer-job #calculationResult { width: 100%; margin: 0; padding: 5px 8px; font-size: .82rem; }
+#calculate .calc-card, #calculate .scope-card { margin: 7px 0; padding: 9px; }
+#calculate .check-row { font-size: .78rem; margin: 5px 0; }

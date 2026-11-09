@@ -305,7 +305,7 @@ class Workspace:
                                 c.attach_fragment(base,row['smiles'],parent=host,slot_id=sid,mode=row.get('mode','covalent'),length=float(row['length']) if row.get('length') else None,direction=row.get('direction'),replace_h=d.get('replace_h',True),ff_choice=ff,cleanup=d.get('cleanup',True),cancel=cancel,attachment_index=row.get('attachment_index'),fragment_cache=fragment_cache,progress=c.batch_progress(progress,done,total,str(sid or host)))
                                 done+=1;progress(dict(message=f'리간드 {done}/{total}자리 완료',percent=95*done/total))
                     elif action=='optimize':
-                        base,results=c.optimize_project(base,ff,d.get('scope','ligands'),steps=d.get('steps',500),cancel=cancel,progress=progress,respect_fixed=bool(d.get('respect_fixed',True)))
+                        base,results=c.optimize_project(base,ff,d.get('scope','ligands'),steps=d.get('steps',500),cancel=cancel,progress=progress,respect_fixed=bool(d.get('respect_fixed',True)),allow_uff_fallback=bool(d.get('allow_uff_fallback',self.settings.get('uff_fallback',True))))
                         job['results']=results
                     elif action=='cleanup':
                         c.cleanup_project(base,cancel,scope=d.get('scope','core_fixed'),steps=d.get('steps',500),progress=progress,respect_fixed=bool(d.get('respect_fixed',True)))

@@ -60,6 +60,46 @@ class NativeV5Tests(unittest.TestCase):
         web.assert_not_called();loop.assert_called_once()
         self.assertFalse(native.call_args.kwargs['recover_prompt'])
         self.assertIn(c.VERSION,self.root.title())
+    def test_hover_help_opens_closes_and_describes_current_slot_locations(self):
+        tip=next(t for t in self.app.help_tips if callable(t.text) and 'R: Sn' in t.text())
+        notebook=tip.widget
+        while not isinstance(notebook,c.ttk.Notebook):notebook=notebook.master
+        notebook.select(0);self.root.update()
+        text=tip.text();self.assertIn('R1: Sn1',text);self.assertIn('L 현재 위치: 이 코어에는 없음',text)
+        tip.widget.event_generate('<Motion>',warp=True,x=tip.widget.winfo_width()//2,y=tip.widget.winfo_height()//2)
+        deadline=time.monotonic()+2
+        while tip.window is None and time.monotonic()<deadline:self.root.update();time.sleep(.01)
+        self.assertIsNotNone(tip.window);self.assertTrue(tip.window.winfo_viewable())
+        self.root.event_generate('<Motion>',warp=True,x=self.root.winfo_width()//2,y=self.root.winfo_height()//2);self.root.update();self.assertIsNone(tip.window)
+        tip.widget.focus_force();self.root.update();tip.widget.event_generate('<Return>');self.root.update();self.assertIsNotNone(tip.window)
+        tip.widget.event_generate('<Escape>');self.root.update();self.assertIsNone(tip.window)
+    def test_calculation_controls_fit_and_progress_is_above_viewer(self):
+        notebook=self.app.calculation_panel.master.master.master
+        # Find the containing notebook without depending on Tk widget path IDs.
+        while not isinstance(notebook,c.ttk.Notebook):notebook=notebook.master
+        notebook.select(1);self.root.update()
+        panel=self.app.calculation_panel;canvas=panel.master
+        self.assertLessEqual(panel.winfo_reqheight(),canvas.winfo_height())
+        self.assertLessEqual(self.app.gaussian_calc_button.winfo_rooty()+self.app.gaussian_calc_button.winfo_height(),canvas.winfo_rooty()+canvas.winfo_height())
+        self.assertLessEqual(self.app.job_banner.winfo_rooty()+self.app.job_banner.winfo_height(),self.app.middle.winfo_rooty())
+    def test_slot_selection_highlights_its_host_atoms(self):
+        self.app.project=c.template(6);self.app.refresh();self.app.slots_dialog();self.root.update()
+        win=next(w for w in self.root.winfo_children() if isinstance(w,c.tk.Toplevel))
+        tree=next(w for w in descendants(win) if isinstance(w,c.ttk.Treeview))
+        tree.selection_set('L1');self.root.update()
+        slot=next(s for s in self.app.project['slots'] if s['id']=='L1')
+        self.assertEqual(self.app.selection,slot['sn'])
+        self.assertIn('L1: '+', '.join('Sn'+str(i) for i in slot['sn']),self.app.slot_help())
+    def test_primary_sn_forcefield_action_reports_uff_fallback_and_undo(self):
+        c.attach_fragment(self.app.project,'[*:1]CCC',slot_id='R1',cleanup=False)
+        before=c.clone(self.app.project);self.app.ff_var.set('MMFF94');self.app.uff_fallback_var.set(True)
+        with c.rdBase.BlockLogs():self.app.optimize();self.finish()
+        self.assertIn('요청 MMFF94 → 적용 UFF',self.app.calculation_summary.get())
+        self.assertEqual(self.app.project['bonds'],before['bonds'])
+        a,b=c.index_atoms(self.app.project),c.index_atoms(before)
+        for i in a:
+            if a[i].get('core'):np.testing.assert_array_equal(c.xyz(a[i]),c.xyz(b[i]))
+        self.assertEqual(self.app.job_percent.get(),100);self.app.undo();self.assertEqual(self.app.project,before)
     def test_four_scope_controls_select_expected_atoms(self):
         s=c.attach_fragment(self.app.project,'[*:1]CCC',slot_id='R1',cleanup=False);self.app.refresh()
         for scope in c.SCOPES:

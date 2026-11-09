@@ -109,8 +109,9 @@ async function task(action, data = {}) {
     revision: state.revision,
     ids: selection,
     ff: $("ff").value,
-    steps: calculationOptions().steps,
+    ...(["optimize", "cleanup"].includes(action) ? { steps: calculationOptions().steps } : {}),
     respect_fixed: $("respectFixed").checked,
+    allow_uff_fallback: $("uffFallback").checked,
     ...data,
   });
   state.job = job;
@@ -170,7 +171,9 @@ function renderJob() {
       : results.length === 1 && first.before_kcal_mol !== undefined
         ? `에너지 ${first.before_kcal_mol.toFixed(4)} → ${first.after_kcal_mol.toFixed(4)} kcal/mol`
         : `${results.length}개 리간드 조각 처리 · 고립 조각 에너지`;
-    $("calculationResult").textContent = `${unfinished ? `미수렴 ${unfinished}건 · 반복 수/구조 확인 필요` : "계산 완료"}\n${detail}\n${first.note || "결과는 실행 취소로 복원할 수 있습니다."}`;
+    const field = first.fallback ? `요청 ${first.requestedForcefield} → 적용 ${first.forcefield}` : first.forcefield || "기하학적 정리";
+    $("calculationResult").textContent = `${unfinished ? `미수렴 ${unfinished}건 · 반복 수/구조 확인 필요` : "계산 완료"} · ${field}\n${detail}`;
+    $("calculationResult").title = first.note || "결과는 실행 취소로 복원할 수 있습니다.";
   }
 }
 function calculationOptions() {
@@ -188,7 +191,7 @@ const scopeDescriptions = {
 let scopeRequest = 0;
 async function renderScope() {
   const epoch = ++scopeRequest;
-  $("scopeDescription").textContent = scopeDescriptions[$("scope").value];
+  $("scopeDescription").dataset.help = "힘장 최적화와 겹침 줄이기에 공통 적용. " + scopeDescriptions[$("scope").value];
   try {
     const plan = await api("query/scope", { scope: $("scope").value, respect_fixed: $("respectFixed").checked });
     if (epoch !== scopeRequest) return;
@@ -198,7 +201,7 @@ async function renderScope() {
   }
 }
 async function selectScopePart(key) {
-  const plan = await api("query/scope", calculationOptions());
+  const plan = await api("query/scope", { scope: $("scope").value, respect_fixed: $("respectFixed").checked });
   selectExact(plan[key]);
 }
 function legacyCopyText(text) {
@@ -358,9 +361,11 @@ function render() {
   if (rendered.settings !== state.settings) {
     applyAppearance();
     $("ff").value = state.settings.ff || "MMFF94";
+    $("uffFallback").checked = state.settings.uff_fallback !== false;
     rendered.settings = state.settings;
   }
   if (rendered.project !== p) {
+    $("slotKindsTip").dataset.help = slotHelp();
     $("structureTitle").textContent = p.title;
     $("viewMetrics").textContent =
       `${p.atoms.length} atoms · ${p.bonds.length} bonds · 고정 배율`;
@@ -994,6 +999,26 @@ function gaussianDialog() {
     sync();
   });
   sync();
+}
+let helpPopup = null, helpTarget = null;
+function hideHelp() {
+  helpPopup?.remove();helpPopup = null;
+  helpTarget?.removeAttribute("aria-describedby");helpTarget = null;
+}
+function showHelp(target) {
+  hideHelp();
+  if (!target?.dataset.help) return;
+  helpTarget = target;helpPopup = document.createElement("div");
+  helpPopup.id = "tinoxoHelp";helpPopup.className = "floating-help";helpPopup.setAttribute("role", "tooltip");
+  helpPopup.textContent = target.dataset.help;target.setAttribute("aria-describedby", helpPopup.id);
+  (modal.open ? modal : document.body).append(helpPopup);
+  const anchor = target.getBoundingClientRect(), rect = helpPopup.getBoundingClientRect();
+  helpPopup.style.left = `${Math.max(8, Math.min(anchor.left, window.innerWidth - rect.width - 8))}px`;
+  helpPopup.style.top = `${Math.max(8, anchor.bottom + rect.height + 8 > window.innerHeight ? anchor.top - rect.height - 8 : anchor.bottom + 8)}px`;
+}
+function slotHelp() {
+  return "R: Sn–C 유기 리간드 자리. L: O–C–O 카복실레이트 가교. P: O–P–O 포스피네이트 가교. U: 사용자 추가 자리.\n" +
+    ["R", "L", "P"].map(kind => `${kind} 현재 위치: ${state.project.slots.filter(s => s.kind === kind).map(s => `${s.id}: ${s.sn.map(i => `Sn${i}`).join(", ")}`).join("; ") || "이 코어에는 없음"}`).join("\n");
 }
 function slotsDialog() {
   const slots = structuredClone(state.project.slots),
@@ -1652,6 +1677,13 @@ function bindShell() {
     () => edit("settings", { settings: { ff: $("ff").value } }),
     "change",
   );
+  on("uffFallback", () => edit("settings", { settings: { uff_fallback: $("uffFallback").checked } }), "change");
+  for (const event of ["pointerover", "focusin", "click"])
+    document.addEventListener(event, e => { const target = e.target.closest?.(".help-tip");if (target) showHelp(target);else if (event !== "pointerover") hideHelp(); });
+  document.addEventListener("pointerout", e => { if (e.target.closest?.(".help-tip") === helpTarget && !helpTarget?.contains(e.relatedTarget)) hideHelp(); });
+  document.addEventListener("focusout", e => { if (e.target === helpTarget) hideHelp(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape") hideHelp(); });
+  window.addEventListener("scroll", hideHelp, true);
   for (const id of ["showH", "showLabels", "coreOnly"])
     $(id).onchange = () => viewer.draw();
   $("scope").onchange = renderScope;

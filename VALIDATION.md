@@ -1,4 +1,23 @@
-# Validation — version 5.0.0, 2026-11-09
+# Validation — version 5.1.0, 2026-11-09
+
+Default UI remains Python/Tk/X11. This release fixes the reproduced UFF model-preparation error and makes the native calculation panel compact.
+
+- **156 Python tests pass without skips** on Python 3.13.5 / Tk 8.6 / RDKit 2026.09.1 / ASE 3.29.0 / NumPy 2.2.4 / SciPy 1.15.3. This adds seven force-field/API tests and four native GUI tests to v5.0's 145 checks.
+- The old `project_to_rdkit(..., sanitize=True)` failure is reproduced on Sn12: a high-coordinate neutral Sn exceeds RDKit's ordinary allowed valence. UFF itself already supplies a standard Sn3 atom type. The new calculation model relaxes that check only for Sn, keeps strict checks on other atoms, skips inferred radicals, and preserves input graph/coordinates/charges/radicals. A carbon with five H bonds is still rejected.
+- Bare and completed Sn3/Sn6/Sn12 models all build actual UFF energy/gradient objects with finite values. Completed models are minimized in all four scopes: energies decrease or remain unchanged, permitted atoms move, fixed coordinates are exact and rigid pair distances remain unchanged to 1e-10 Å. The original project and stored bonds are unchanged. These tests use standard RDKit parameters, not mocked force fields.
+- With fallback disabled, a whole Sn model requested as MMFF94 gives a precise missing-Sn-type error and preserves the project. With fallback enabled, UFF runs using the requested scope, stores requested/actual fields, and agrees exactly with a direct UFF run. Unsupported organic MMFF types (boron fixture) also use UFF; a supported organic fixture stays MMFF94. The HTTP worker reports the actual UFF result and respects fallback opt-out.
+- New native tests use real X11 pointer movement to open/close `(?)` help, and check keyboard opening/dismissal. They verify current R/L/P host descriptions, site-row selection highlighting and a real Sn primary optimization action with MMFF-to-UFF result text, fixed core and undo.
+- At the default 1540×940 window on a 1600×1000 Xorg display, calculation controls require 736 px inside an 824 px viewport, including the final Gaussian button. The banner is above the viewer pane. Smaller windows or larger fonts retain scrolling; this is not a guarantee that all settings fit every display.
+- **29 DOM scenarios pass** against the real API using jsdom 26, including focusable help, scope help content, progress placement, enabled Sn fallback and actual-force-field result text. Canvas is mocked. The 100-rotation viewer-cache regression and JavaScript syntax checks also pass.
+- Native dark calculation/results, hover scope help and light R/L/P help layouts were visually inspected on local X11. Existing clipboard, cancellation/history, launchers, science, font, Gaussian input and native EGL/GLES checks remain in the full suite. `--check`, `--help` and an extracted source archive plus SHA-256 manifest are verified before publication.
+
+RDKit's Sn typing may print `hybridization set to SP3` warnings for higher coordination: its UFF typer maps Sn to the standard Sn3 label. Those warnings do not stop the tested calculations. Generic UFF is not a fitted Sn oxo cluster potential, and lower force-field energy is not proof of physical accuracy. MMFF94 does not gain Sn parameters through fallback: the actual calculation is explicitly UFF. The separate ligand-only action continues to use the selected force field.
+
+Primary references: [RDKit UFF atom typing](https://github.com/rdkit/rdkit/blob/master/Code/GraphMol/ForceFieldHelpers/UFF/AtomTyper.cpp), [RDKit Sn3 parameters](https://github.com/rdkit/rdkit/blob/master/Code/ForceField/UFF/Params.cpp), [RDKit force-field API](https://www.rdkit.org/docs/source/rdkit.Chem.rdForceFieldHelpers.html), [Open Babel MMFF94 implementation's supported elements](https://openbabel.org/docs/Forcefields/mmff94.html).
+
+The user's HPC/MobaXterm/PuTTY display, PC-to-server clipboard bridge and a Gaussian executable were not available. Optional browser appearance/WebGL/FPS remain unverified. Reproduce with the commands in the earlier record below; GUI tests require DISPLAY or the developer-only `tests/run_x11.py` runner.
+
+# Earlier 5.0.0 validation record — 2026-11-09
 
 The v5.0 release defaults to the **Python/Tk/X11 GUI**, following the user's latest request. Browser mode requires explicit `--web`. Historical records below describe their original releases.
 

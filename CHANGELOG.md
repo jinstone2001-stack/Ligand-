@@ -1,5 +1,14 @@
 # Changes
 
+## 5.1.0 — 2026-11-09
+
+- Replace long native calculation explanations with `(?)` hover help, including click and keyboard access. Use compact controls so the default X11 calculation panel fits one 1600×1000 screen. Keep scrolling for smaller screens or larger fonts.
+- Move progress, percentage, elapsed time, cancellation and result summary directly above the structure viewer. Clear stale results when a new job starts and show the actual force field during calculation and in results.
+- Explain R/L/P/U site types and current Sn host IDs through the same help controls. Selecting a site row highlights its host atoms and attached ligand.
+- Fix the reproduced UFF failure: high-coordinate Sn was rejected by ordinary valence checking before UFF was built. Use a calculation copy with strict nonSn validation and unchanged charges/radicals/connectivity, allowing RDKit's existing Sn3 UFF type to run on Sn3/Sn6/Sn12. No new fitted metal parameters are introduced.
+- MMFF94 lacks Sn atom types. Add an explicit, default-on GUI/API option to use UFF when full-structure MMFF94 parameters are unavailable. Record requested/actual force field and fallback; the direct engine API remains strict by default. Supported MMFF models and ligand-only calculations retain the selected force field.
+- Keep optional web mode consistent with compact help, progress placement, fallback control and result labelling. Extend real Sn chemistry, X11 hover/layout/site/optimization and DOM regressions.
+
 ## 5.0.0 — 2026-11-09
 
 - Make Python/Tk/X11 the default GUI again, as explicitly requested for v5.0. `--native` remains an alias; `--web` is required for browser mode and web-only options. Update native title, help, Conda Tk dependency and launch regressions.
