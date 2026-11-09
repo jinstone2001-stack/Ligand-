@@ -3,9 +3,9 @@ channels:
   - conda-forge
 dependencies:
   - python=3.11
+  - tk>=8.6,<9
   - rdkit>=2024.03
   - ase>=3.22
   - numpy>=1.24
   - scipy>=1.10
   - pillow>=10
-# Optional legacy GUI: conda install -c conda-forge tk=8.6 fontconfig

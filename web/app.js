@@ -109,6 +109,8 @@ async function task(action, data = {}) {
     revision: state.revision,
     ids: selection,
     ff: $("ff").value,
+    steps: calculationOptions().steps,
+    respect_fixed: $("respectFixed").checked,
     ...data,
   });
   state.job = job;
@@ -132,7 +134,7 @@ async function pollJob(wait = false) {
         await refresh(true);
         if (data.job?.status === "error") throw Error(data.job.error);
         if (data.job?.status === "cancelled") toast("계산을 취소했습니다.");
-        else if (data.job) toast("계산 결과를 적용했습니다.");
+        else if (data.job) toast(data.job.results?.some(r => r.converged === false) ? "미수렴 상태의 개선된 좌표를 적용했습니다. 계산 결과를 확인하세요." : "계산 결과를 적용했습니다.");
         break;
       }
       await delay(350);
@@ -146,8 +148,88 @@ async function pollJob(wait = false) {
 }
 function renderJob() {
   const running = state.job?.status === "running";
-  $("jobStatus").textContent = running ? state.job.progress : "";
+  const job = state.job;
+  $("jobProgress").classList.toggle("hidden", !job);
+  const percent = Math.floor(Number(job?.percent) || 0);
+  $("jobBar").value = percent;
+  $("jobPercent").textContent = `${percent}%`;
+  $("jobStatus").textContent = job ? (running ? job.progress : job.status === "done" ? "완료" : job.status === "cancelled" ? "취소됨 · 원본 유지" : "오류 · 원본 유지") : "";
+  $("jobStatus").title = job?.error || job?.progress || "";
+  const seconds = job ? Math.max(0, Math.floor((job.finishedAt || Date.now()/1000)-job.startedAt)) : 0;
+  $("jobElapsed").textContent = job ? `${seconds}초 · 작업량 기준` : "";
   $("cancelJob").classList.toggle("hidden", !running);
+  for (const action of ["optimize", "optimizeFragments", "cleanup", "example"])
+    document.querySelectorAll(`[data-action="${action}"]`).forEach(b => b.disabled = running);
+  const results = job?.status === "done" ? job.results : null;
+  $("calculationResult").classList.toggle("hidden", !results?.length);
+  if (results?.length) {
+    const unfinished = results.filter(r => r.converged === false).length;
+    const first = results[0];
+    const detail = first.beforeContacts !== undefined
+      ? `접촉 ${first.beforeContacts} → ${first.afterContacts}쌍 · 겹침 점수 ${first.beforeOverlapScore.toFixed(4)} → ${first.afterOverlapScore.toFixed(4)} (임의 단위)`
+      : results.length === 1 && first.before_kcal_mol !== undefined
+        ? `에너지 ${first.before_kcal_mol.toFixed(4)} → ${first.after_kcal_mol.toFixed(4)} kcal/mol`
+        : `${results.length}개 리간드 조각 처리 · 고립 조각 에너지`;
+    $("calculationResult").textContent = `${unfinished ? `미수렴 ${unfinished}건 · 반복 수/구조 확인 필요` : "계산 완료"}\n${detail}\n${first.note || "결과는 실행 취소로 복원할 수 있습니다."}`;
+  }
+}
+function calculationOptions() {
+  const steps = Number($("optSteps").value);
+  if (!Number.isInteger(steps) || steps < 1 || steps > 10000)
+    throw Error("최대 반복 수는 1–10000 정수로 입력하세요.");
+  return { scope: $("scope").value, respect_fixed: $("respectFixed").checked, steps };
+}
+const scopeDescriptions = {
+  core_fixed: "코어 좌표를 고정하고 리간드 원자를 움직입니다.",
+  all: "코어와 리간드를 모두 움직입니다. 개별 고정도 적용하려면 아래 체크박스를 켜세요.",
+  core_only: "리간드 좌표를 고정하고 코어 원자만 움직입니다.",
+  rigid: "코어를 기준으로 각 연결 리간드를 회전·이동합니다. 내부 결합길이·각도·이면각을 유지하고 연결부만 조정합니다. 개별 고정 원자가 있는 리간드는 조각 전체를 고정합니다.",
+};
+let scopeRequest = 0;
+async function renderScope() {
+  const epoch = ++scopeRequest;
+  $("scopeDescription").textContent = scopeDescriptions[$("scope").value];
+  try {
+    const plan = await api("query/scope", { scope: $("scope").value, respect_fixed: $("respectFixed").checked });
+    if (epoch !== scopeRequest) return;
+    $("scopeCounts").textContent = `고정 ${plan.fixedCount} · 이동 ${plan.movingCount} 원자${plan.rigid ? ` · ${plan.groups.length} 리간드 강체` : ""}`;
+  } catch (error) {
+    if (epoch === scopeRequest) $("scopeCounts").textContent = error.message;
+  }
+}
+async function selectScopePart(key) {
+  const plan = await api("query/scope", calculationOptions());
+  selectExact(plan[key]);
+}
+function legacyCopyText(text) {
+  const previous = document.activeElement;
+  const input = document.createElement("textarea");
+  input.value = text; input.setAttribute("aria-label", "복사할 텍스트");
+  input.style.cssText = "position:fixed;left:0;top:0;width:2px;height:2px;opacity:0";
+  (modal.open ? modal : document.body).append(input);
+  input.focus(); input.select();
+  let ok = false;
+  try { ok = Boolean(document.execCommand?.("copy")); } catch {}
+  input.remove(); previous?.focus();
+  return ok;
+}
+async function copyCoordinates() {
+  await editQueue;
+  await refresh();
+  const text = xyz();
+  let ok = false;
+  try { if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(text); ok = true; } } catch {}
+  if (!ok) ok = legacyCopyText(text);
+  if (ok) { toast(`현재 구조 XYZ를 복사했습니다. (${state.project.atoms.length}원자)`); return; }
+  show("XYZ 직접 복사", `<p class="content-note">브라우저가 클립보드 쓰기를 허용하지 않습니다. 아래 최신 좌표를 선택한 상태에서 Ctrl+C 또는 길게 눌러 복사하세요.</p><textarea id="copyText" rows="14" readonly>${h(text)}</textarea><div class="dialog-actions">${btn("다시 복사", "retryCopy")}${btn("XYZ 다운로드", "downloadCopy")}</div>`);
+  $("copyText").focus(); $("copyText").select();
+  on("retryCopy", async () => {
+    let copied = false;
+    try { if (navigator.clipboard?.writeText) { await navigator.clipboard.writeText(text); copied = true; } } catch {}
+    if (copied || legacyCopyText(text)) toast("XYZ 좌표를 복사했습니다.");
+    else { $("copyText").focus(); $("copyText").select(); toast("Ctrl+C 또는 길게 눌러 복사하세요."); }
+  });
+  on("downloadCopy", () => download(text, "tinoxo.xyz"));
 }
 function renderSave() {
   const save = state.save || { state: "saved" };
@@ -287,6 +369,7 @@ function render() {
     $("bondCount").textContent = p.bonds.length;
     $("totalCharge").textContent = p.metadata.totalCharge ?? "미지정";
     rendered.project = p;
+    void renderScope();
   }
   const log = state.logs.join("\n");
   if (rendered.log !== log) {
@@ -315,7 +398,7 @@ function renderSelection() {
   $("selectionBadge").textContent = selection.length;
   $("atomList").innerHTML =
     table(
-      ["ID", "원소", "고정"],
+      ["ID", "원소", "개별 고정"],
       selection
         .slice(0, 100)
         .map((i) => [i, aa.get(i).element, aa.get(i).fixed ? "●" : "—"]),
@@ -439,7 +522,7 @@ function records() {
   ];
 }
 function libraryHTML() {
-  return `<input id="ligandSearch" class="library-search" placeholder="리간드 이름 / 종류 / SMILES 검색"><div id="libraryTable" class="table-scroll library-table"></div><div class="form-grid">${inputField("이름", "favoriteName")}${selectField("결합 방식", "favoriteMode", ["covalent", "coordinate", "bridge"], "covalent")}<label class="full">리간드 SMILES<input id="favoriteSmiles" placeholder="CCN 또는 [*:1]C"></label></div><div class="inline">${btn("내 SMILES 추가 / 갱신", "favoriteSave")}${btn("내 SMILES 삭제", "favoriteDelete")}${btn("선택 사용", "libraryUse", true)}</div>`;
+  return `<p class="hint">산 전구체는 H가 붙은 중성 형태입니다. L/P 가교 부착 시 donor OH는 탈양성자화합니다. 니트로기의 형식전하는 유지합니다.</p><input id="ligandSearch" class="library-search" placeholder="리간드 이름 / 종류 / SMILES 검색"><div id="libraryTable" class="table-scroll library-table"></div><div class="form-grid">${inputField("이름", "favoriteName")}${selectField("결합 방식", "favoriteMode", ["covalent", "coordinate", "bridge"], "covalent")}<label class="full">리간드 SMILES<input id="favoriteSmiles" placeholder="CCN 또는 [*:1]C"></label></div><div class="inline">${btn("내 SMILES 추가 / 갱신", "favoriteSave")}${btn("내 SMILES 삭제", "favoriteDelete")}${btn("선택 사용", "libraryUse", true)}</div>`;
 }
 function bindLibrary(receiver) {
   let active = null;
@@ -997,13 +1080,24 @@ function contactSettings() {
     "비결합 접촉 검사 기준",
     `<p class="content-note">radii: max(vdW 반경합 × 계수, 공유반경합 × 계수). minimum: 모든 검사쌍에 공통 최소 거리 적용.</p><div class="form-grid">${selectField("방식", "contactMode", ["radii", "minimum"], v.mode)}${inputField("vdW 계수", "contactVdw", v.vdw, "number", 'step="0.01"')}${inputField("공유반경 계수", "contactCovalent", v.covalent, "number", 'step="0.01"')}${inputField("공통 최소거리 Å", "contactMinimum", v.minimum, "number", 'step="0.01"')}</div><div class="dialog-actions">${btn("적용", "applyContacts", true)}</div>`,
   );
+  const syncFields = () => {
+    const minimum = $("contactMode").value === "minimum";
+    for (const id of ["contactVdw", "contactCovalent"]) {
+      $(id).closest("label").hidden = minimum;
+      $(id).disabled = minimum;
+    }
+    $("contactMinimum").closest("label").hidden = !minimum;
+    $("contactMinimum").disabled = !minimum;
+  };
+  $("contactMode").onchange = syncFields;
+  syncFields();
   on("applyContacts", async () => {
     await edit("contacts", {
       criteria: {
         mode: $("contactMode").value,
-        vdw: $("contactVdw").value,
-        covalent: $("contactCovalent").value,
-        minimum: $("contactMinimum").value,
+        ...($("contactMode").value === "minimum"
+          ? { minimum: $("contactMinimum").value }
+          : { vdw: $("contactVdw").value, covalent: $("contactCovalent").value }),
       },
     });
     await refreshContacts();
@@ -1458,17 +1552,12 @@ const actions = {
   library: libraryDialog,
   slots: slotsDialog,
   bank: bankDialog,
-  copy: async () => {
-    try {
-      await navigator.clipboard.writeText(xyz());
-      toast("XYZ 좌표를 복사했습니다.");
-    } catch {
-      download(xyz(), "tinoxo.xyz");
-      toast("클립보드 권한이 없어 XYZ 파일을 다운로드했습니다.");
-    }
-  },
-  optimize: () => task("optimize", { scope: $("scope").value }),
-  cleanup: () => task("cleanup"),
+  copy: copyCoordinates,
+  optimize: () => task("optimize", calculationOptions()),
+  optimizeFragments: () => task("optimize", { ...calculationOptions(), scope: "ligands", respect_fixed: true }),
+  cleanup: () => task("cleanup", calculationOptions()),
+  selectMoving: () => selectScopePart("movingIds"),
+  selectFrozen: () => selectScopePart("fixedIds"),
   bonds: bondsDialog,
   geometry: geometryDialog,
   resonance: resonanceDialog,
@@ -1565,6 +1654,8 @@ function bindShell() {
   );
   for (const id of ["showH", "showLabels", "coreOnly"])
     $(id).onchange = () => viewer.draw();
+  $("scope").onchange = renderScope;
+  $("respectFixed").onchange = renderScope;
   $("slotsTable").addEventListener("click", (e) => {
     const tr = e.target.closest("[data-slot]");
     if (!tr) return;

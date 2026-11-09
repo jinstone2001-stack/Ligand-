@@ -1,7 +1,7 @@
 # Ligand / Tin Oxo Studio
 
-This repository contains the local Python chemistry engine, localhost browser
-editor and optional Tk editor. Keep chemistry and existing project files
+This repository contains the local Python chemistry engine, default Tk/X11
+editor and optional localhost browser editor. Keep chemistry and existing project files
 compatible when fixing the launcher or UI.
 
 ## Release policy
@@ -22,13 +22,16 @@ The user requires **every new published version to become the latest `main`**.
 
 ## Launcher contract
 
-- A normal launch opens the selected localhost URL in the default browser,
-  including when `SSH_CONNECTION` or `SSH_CLIENT` is present.
-- Only explicit `--no-browser` disables automatic opening. Keep `--open-browser`
-  accepted for compatibility with 4.2 commands.
-- Always print the actual bound URL with its token. If the OS browser opener
-  fails, keep the server available and give the complete URL to open manually.
-- For HPC port forwarding, document explicit `--no-browser` and a PC browser.
+- The user explicitly changed v5.0 to a **native X11 GUI release**, like v4.0.
+  A normal `python TinOxoStudio.py` launch must open Tk, never a browser/server.
+- Keep `--native` as an alias for the default. Only `--web` opts into the browser
+  interface. Reject web-specific flags without `--web` with clear guidance.
+- Missing DISPLAY/Tk must produce an actionable X11 error, not silently fall
+  back to a browser. Preserve SSH's DISPLAY and document X11 forwarding.
+- In optional `--web` mode, preserve v4.3's browser-opening behavior, complete
+  token URL, explicit `--no-browser` and `--open-browser` compatibility.
+- Native v5 controls must expose the same chemistry constraints as the web API.
+  Never label contact penalties as force-field energy or 100% as convergence.
 
 ## Validation
 

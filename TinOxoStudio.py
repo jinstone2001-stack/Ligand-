@@ -1,9 +1,9 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
-"""Tin Oxo Studio 4.3 — local browser workspace and optional native editor.
+"""Tin Oxo Studio 5.0 — native Tk/X11 editor, optional local browser workspace.
 Run: python TinOxoStudio.py
 Dependencies: Python >=3.10, numpy, scipy, rdkit, ase, Pillow.
-Web mode uses a browser. Optional --native uses Tk; neither mode needs Gaussian.
+Default launch uses Tk/X11. Explicit --web uses a browser; neither needs Gaussian.
 The browser workspace runs offline against the local Python server.
 Coordinate provenance and external reference URLs are embedded in the program.
 """
@@ -28,7 +28,8 @@ try:
 except ImportError as exc:
     raise SystemExit("ASE가 필요합니다. python -m pip install ase") from exc
 from PIL import Image, ImageDraw, ImageFont
-VERSION = "4.3.0"
+VERSION = "5.0.0"
+from TinOxoOptimize import SCOPES, scope_plan, minimize_coordinates, ContactObjective
 PT = Chem.GetPeriodicTable()
 SYMBOLS = chemical_symbols[1:119]
 METALS = set(SYMBOLS) - set("H He B C N O F Ne Si P S Cl Ar Ge As Se Br Kr Sb Te I Xe At Rn Ts Og".split())
@@ -59,6 +60,13 @@ REFERENCE_ACCESS_NOTE = "2026-11-06: gaussian.com 본문은 HTTP 403/502로 접�
 # ---------------------- Project and coordinate utilities ----------------------
 def clone(value):
     return copy.deepcopy(value)
+
+def batch_progress(callback,completed,total,label=''):
+    if callback is None:return None
+    def emit(value):
+        callback(dict(message=(label+' · ' if label else '')+value['message'],
+                      percent=95*(completed+value['percent']/100)/max(1,total)))
+    return emit
 
 def xyz(a):
     return np.array([a['x'],a['y'],a['z']],dtype=float)
@@ -246,11 +254,11 @@ BUILTIN_LIGANDS = [
  ('카보닐','메틸에스터','[*:1]C(=O)OC','covalent'),('카보닐','아마이드','[*:1]C(=O)N','covalent'),
  ('카보닐','니트릴','[*:1]C#N','covalent'),('할로젠','F','[*:1]F','covalent'),
  ('할로젠','Cl','[*:1]Cl','covalent'),('할로젠','Br','[*:1]Br','covalent'),('할로젠','I','[*:1]I','covalent'),
- ('카복실레이트(L)','포메이트','O=C[O-]','bridge'),('카복실레이트(L)','아세테이트','CC(=O)[O-]','bridge'),
- ('카복실레이트(L)','프로피오네이트','CCC(=O)[O-]','bridge'),('카복실레이트(L)','벤조에이트','O=C([O-])c1ccccc1','bridge'),
- ('카복실레이트(L)','피발레이트','CC(C)(C)C(=O)[O-]','bridge'),
- ('포스피네이트(P)','디메틸포스피네이트','CP(C)(=O)[O-]','bridge'),
- ('포스피네이트(P)','디페닐포스피네이트','O=P([O-])(c1ccccc1)c1ccccc1','bridge'),
+ ('카복실산(L 전구체)','포름산','O=CO','bridge'),('카복실산(L 전구체)','아세트산','CC(=O)O','bridge'),
+ ('카복실산(L 전구체)','프로피온산','CCC(=O)O','bridge'),('카복실산(L 전구체)','벤조산','O=C(O)c1ccccc1','bridge'),
+ ('카복실산(L 전구체)','피발산','CC(C)(C)C(=O)O','bridge'),
+ ('포스핀산(P 전구체)','디메틸포스핀산','CP(C)(=O)O','bridge'),
+ ('포스핀산(P 전구체)','디페닐포스핀산','O=P(O)(c1ccccc1)c1ccccc1','bridge'),
  ('배위 리간드','물','O','coordinate'),('배위 리간드','암모니아','N','coordinate'),
  ('배위 리간드','피리딘 (N 연결)','n1ccccc1','coordinate'),('배위 리간드','아세토니트릴 (N 연결)','N#CC','coordinate'),
  ('배위 리간드','DMSO (O 연결)','O=S(C)C','coordinate'),('배위 리간드','THF (O 연결)','O1CCCC1','coordinate'),
@@ -284,11 +292,13 @@ def make_forcefield(mol,choice,conf_id=-1):
     if ff is None:raise ValueError('힘장 객체를 생성하지 못했습니다.')
     return ff
 
-def minimize_ff(ff,steps=500,cancel=None):
+def minimize_ff(ff,steps=500,cancel=None,progress=None):
     ff.Initialize();before=float(ff.CalcEnergy());status=1
-    for _ in range(max(1,math.ceil(steps/25))):
+    for done in range(0,steps,25):
         if cancel and cancel.is_set():raise InterruptedError('최적화를 취소했습니다.')
-        status=ff.Minimize(maxIts=min(25,steps),forceTol=1.e-4,energyTol=1.e-6)
+        count=min(25,steps-done)
+        status=ff.Minimize(maxIts=count,forceTol=1.e-4,energyTol=1.e-6)
+        if progress:progress(dict(message=f'힘장 반복 예산 {min(done+count,steps)}/{steps}',percent=95*min(done+count,steps)/steps))
         if status==0:break
     after=float(ff.CalcEnergy())
     if not math.isfinite(after):raise ValueError('힘장 계산이 유한한 에너지를 반환하지 않았습니다.')
@@ -371,7 +381,9 @@ def ligand_attachment_info(smiles,kind='A',mode='covalent'):
     return {'mol':mol,'candidates':candidates,'default':default,'groups':groups,'stars':stars}
 
 
-def build_fragment(smiles,kind='A',mode='covalent',ff_choice='MMFF94',conformers=6,cancel=None,attachment_index=None):
+def build_fragment(smiles,kind='A',mode='covalent',ff_choice='MMFF94',conformers=6,cancel=None,attachment_index=None,progress=None):
+    if cancel and cancel.is_set():raise InterruptedError('리간드 생성을 취소했습니다.')
+    if progress:progress(dict(message='SMILES·결합 원자 검증',percent=0))
     info=ligand_attachment_info(smiles,kind,mode);mol=info['mol'];stars=info['stars']
     # Legacy calls without a picker retain their first-atom / dummy behavior.
     if attachment_index is None:
@@ -409,18 +421,22 @@ def build_fragment(smiles,kind='A',mode='covalent',ff_choice='MMFF94',conformers
     if mol.GetNumAtoms()>800:raise ValueError('리간드는 H 포함 800원자까지 생성합니다.')
     params=AllChem.ETKDGv3();params.randomSeed=87321;params.numThreads=1;params.enforceChirality=True
     params.pruneRmsThresh=.15
+    if progress:progress(dict(message='명시적 H 준비 완료 · 3D conformer 생성',percent=10))
     ids=list(AllChem.EmbedMultipleConfs(mol,numConfs=max(1,conformers),params=params))
     if not ids:
         params.useRandomCoords=True;ids=list(AllChem.EmbedMultipleConfs(mol,numConfs=1,params=params))
     if not ids:raise ValueError('ETKDG 3D 좌표 생성에 실패했습니다. 리간드를 나누거나 구조 파일을 사용하세요.')
     results=[];restraint_notes=[]
-    for ci in ids:
+    for k,ci in enumerate(ids):
+        if progress:progress(dict(message=f'conformer {k+1}/{len(ids)} 힘장 정리',percent=25+70*k/len(ids)))
         if mol.GetNumAtoms()-(1 if cap is not None else 0)==1:
             # A single attached atom has no internal coordinates to optimize.
             results.append((0.,ci,0));continue
         ff=make_forcefield(mol,ff_choice,ci)
         restraint_notes=initial_resonance_restraints(mol,ff,ff_choice)
-        before,after,status=minimize_ff(ff,400,cancel);results.append((after,ci,status))
+        def conf_progress(value):
+            if progress:progress(dict(message=f'conformer {k+1}/{len(ids)} · '+value['message'],percent=25+70*(k+value['percent']/100)/len(ids)))
+        before,after,status=minimize_ff(ff,400,cancel,conf_progress);results.append((after,ci,status))
     e,ci,status=min(results,key=lambda r:r[0]);conf=mol.GetConformer(ci)
     points=np.asarray(conf.GetPositions(),dtype=float)
     if cap is not None:direction=unit(points[anchor]-points[cap])
@@ -442,6 +458,7 @@ def build_fragment(smiles,kind='A',mode='covalent',ff_choice='MMFF94',conformers
         ri=res['bonds'].get(f'{i}:{j}') or res['bonds'].get(f'{j}:{i}')
         if ri:data['resonance']=ri
         bonds.append(data)
+    if progress:progress(dict(message='리간드 3D 생성 완료',percent=100))
     return {'atoms':atoms,'bonds':bonds,'anchor':anchor,'center':center,'donors':donors,
         'direction':direction,'resonance':res,'smiles':smiles,'attachmentIndex':selected_index,'energy':e,'status':status,
         'charge':sum(a['charge'] for a in atoms),'conformers':len(ids),'ff':ff_choice,
@@ -512,7 +529,7 @@ def outward_direction(p,parent):
     return unit(sum(ds,np.zeros(3)),unit(r-np.mean([xyz(v) for v in p['atoms']],axis=0)))
 
 def attach_fragment(p,smiles,parent=None,slot_id=None,mode='covalent',length=None,direction=None,
-                    replace_h=True,ff_choice='MMFF94',cleanup=True,cancel=None,attachment_index=None,fragment_cache=None):
+                    replace_h=True,ff_choice='MMFF94',cleanup=True,cancel=None,attachment_index=None,fragment_cache=None,progress=None):
     slot=next((s for s in p['slots'] if s['id']==slot_id),None) if slot_id else None
     if slot_id and slot is None:raise ValueError('결합 자리가 없습니다.')
     if slot:
@@ -534,8 +551,11 @@ def attach_fragment(p,smiles,parent=None,slot_id=None,mode='covalent',length=Non
     key=(smiles,kind,mode,ff_choice,attachment_index)
     frag=fragment_cache.get(key) if fragment_cache is not None else None
     if frag is None:
-        frag=build_fragment(smiles,kind,mode,ff_choice,conformers=4,cancel=cancel,attachment_index=attachment_index)
+        def fragment_progress(value):
+            if progress:progress(dict(message=value['message'],percent=.7*value['percent']))
+        frag=build_fragment(smiles,kind,mode,ff_choice,conformers=4,cancel=cancel,attachment_index=attachment_index,progress=fragment_progress)
         if fragment_cache is not None:fragment_cache[key]=frag
+    if progress:progress(dict(message='리간드 배치·접촉 평가',percent=70))
     if replace_h and kind=='A' and mode=='covalent' and a[parents[0]]['element'] not in METALS:
         hs=[i for i in adjacency(p)[parents[0]] if a[i]['element']=='H']
         if hs:delete_atoms(p,[hs[0]]);a=index_atoms(p)
@@ -570,7 +590,8 @@ def attach_fragment(p,smiles,parent=None,slot_id=None,mode='covalent',length=Non
             'order':1.,'kind':mode,'source':'explicit attachment'})
         best=None;scorer=PlacementScorer(p,new_atoms,new_bonds)
         neighbors=adjacency(p)[parent];neighbor_dirs=[unit(xyz(a[n])-parent_xyz) for n in neighbors]
-        for d in dirs:
+        for di,d in enumerate(dirs):
+            if progress:progress(dict(message=f'부착 배향 {di+1}/{len(dirs)} 검사',percent=70+25*di/len(dirs)))
             if cancel and cancel.is_set():raise InterruptedError('부착을 취소했습니다.')
             r=rotate_matrix(frag['direction'],d);base=(points-anchor_xyz)@r.T
             angle_penalty=sum(max(0.,float(np.dot(d,nd))-.35)**2 for nd in neighbor_dirs)*25.
@@ -596,6 +617,7 @@ def attach_fragment(p,smiles,parent=None,slot_id=None,mode='covalent',length=Non
                     component.add(nxt);todo.append(nxt)
         project_to_rdkit(p,component,metal_dative=False,sanitize=True,cap_boundary=True)
     validate_project(p)
+    if progress:progress(dict(message='리간드 부착 완료',percent=100))
     return slot
 
 
@@ -652,23 +674,32 @@ def project_to_rdkit(p,ids=None,metal_dative=True,sanitize=False,cap_boundary=Fa
     return mol,mapping,[i for i,r in caps]
 
 
-def optimize_project(p,choice='MMFF94',scope='ligands',steps=500,cancel=None,progress=None):
+def optimize_project(p,choice='MMFF94',scope='ligands',steps=500,cancel=None,progress=None,respect_fixed=True):
+    if isinstance(steps,bool) or not isinstance(steps,(int,np.integer)) or not 1<=steps<=10000:raise ValueError('최대 반복 수는 1–10000 정수입니다.')
+    if cancel and cancel.is_set():raise InterruptedError('최적화를 취소했습니다.')
+    if scope!='ligands':
+        out=clone(p);plan=scope_plan(out,scope,respect_fixed)
+        try:
+            mol,mapping,_=project_to_rdkit(out,sanitize=True)
+            ff=make_forcefield(mol,choice);ff.Initialize()
+        except Exception as exc:
+            raise ValueError(f'{choice} 전체 구조 모델을 만들 수 없습니다: {exc}\nSn 배위 환경이 지원되지 않으면 범위 적용 겹침 줄이기 또는 별도의 리간드 내부 최적화를 사용하세요. 힘장을 자동 대체하지 않았습니다.') from exc
+        # RDKit's atom order is the input atom order, including fixed atoms.
+        def energy_gradient(points):
+            flat=points.ravel().tolist()
+            return float(ff.CalcEnergy(flat)),np.asarray(ff.CalcGrad(flat)).reshape(-1,3)
+        result=minimize_coordinates(out,plan,energy_gradient,steps,cancel,progress)
+        result.update(forcefield=choice,before_kcal_mol=result.pop('before'),after_kcal_mol=result.pop('after'))
+        out['metadata']['lastOptimization']=dict(at=datetime.now().isoformat(),forcefield=choice,scope=scope,results=[result],
+            note='전체 구조 MMFF/UFF 초기 정리. rigid는 코어 기준 좌표계를 유지하고 각 연결 리간드를 강체로 이동.')
+        return out,[result]
     out=clone(p);logs=[];a=index_atoms(out)
-    if scope=='all':
-        mol,mapping,_=project_to_rdkit(out,sanitize=True)
-        ff=make_forcefield(mol,choice)
-        for aid,i in mapping.items():
-            if a[aid].get('fixed'):ff.AddFixedPoint(i)
-        bef,aft,status=minimize_ff(ff,steps,cancel)
-        for aid,i in mapping.items():
-            if not a[aid].get('fixed'):set_xyz(a[aid],mol.GetConformer().GetAtomPosition(i))
-        logs.append({'scope':'전체 구조 / 지정 고정 원자 유지','forcefield':choice,'before_kcal_mol':bef,'after_kcal_mol':aft,'converged':status==0})
-    else:
+    if scope=='ligands':
         slots=[s for s in out['slots'] if s.get('ligandIds')]
         if not slots:raise ValueError('최적화할 리간드가 없습니다. 먼저 리간드를 추가하세요.')
         for k,s in enumerate(slots):
             if cancel and cancel.is_set():raise InterruptedError('최적화를 취소했습니다.')
-            if progress:progress(f"{s['id']} 최적화 {k+1}/{len(slots)}")
+            if progress:progress(dict(message=f"{s['id']} 최적화 {k+1}/{len(slots)}",percent=95*k/len(slots)))
             ids=[i for i in s['ligandIds'] if i in a]
             if len(ids)==1:
                 logs.append({'scope':s['id'],'forcefield':choice,'skipped':'단원자 리간드에는 최적화할 내부 자유도가 없습니다.'});continue
@@ -679,20 +710,33 @@ def optimize_project(p,choice='MMFF94',scope='ligands',steps=500,cancel=None,pro
                 if (b['a'] in chosen)!=(b['b'] in chosen):fixed.add(mapping[b['a'] if b['a'] in chosen else b['b']])
             fixed|={mapping[i] for i in ids if a[i].get('fixed')}
             for i in fixed:ff.AddFixedPoint(i)
-            bef,aft,status=minimize_ff(ff,steps,cancel)
+            def fragment_progress(value):
+                if progress:progress(dict(message=s['id']+' · '+value['message'],percent=95*(k+value['percent']/100)/len(slots)))
+            bef,aft,status=minimize_ff(ff,steps,cancel,fragment_progress)
             for aid,i in mapping.items():
                 if i not in fixed:set_xyz(a[aid],mol.GetConformer().GetAtomPosition(i))
             logs.append({'scope':s['id']+' / boundary fixed, H-capped fragment','forcefield':choice,
                 'before_kcal_mol':bef,'after_kcal_mol':aft,'converged':status==0,
                 'note':'고립 리간드 힘장 에너지. Sn 결합 에너지 또는 클러스터 총에너지가 아님.'})
-        cleanup_project(out,cancel=cancel)
     out['metadata']['lastOptimization']={'at':datetime.now().isoformat(),'forcefield':choice,'scope':scope,'results':logs,
         'note':'MMFF/UFF 초기 구조 정리. DFT 에너지 또는 구조 안정성 보장 아님.'}
     return out,logs
 
 
-def cleanup_project(p,cancel=None):
-    for s in p['slots']:
+def cleanup_project(p,cancel=None,scope=None,steps=500,progress=None,respect_fixed=True):
+    if scope is not None:
+        plan=scope_plan(p,scope,respect_fixed)
+        criteria=p['metadata'].get('contactCriteria',DEFAULTS['contact'])
+        before=clashes(p,criteria)
+        result=minimize_coordinates(p,plan,ContactObjective(p,radius,criteria),steps,cancel,progress)
+        result.update(beforeContacts=len(before),afterContacts=len(clashes(p,criteria)),
+            beforeOverlapScore=sum((r['threshold']-r['distance'])**2 for r in before),
+            afterOverlapScore=sum((r['threshold']-r['distance'])**2 for r in clashes(p,criteria)),
+            note='접촉 벌점 + 초기 결합/1–3 거리 및 약한 변위 제약. 점수는 임의 단위이며 힘장 에너지가 아님.')
+        p['metadata']['lastCleanup']=result
+        return p
+    for k,s in enumerate(p['slots']):
+        if progress:progress(dict(message=f"회전 겹침 정리 {k+1}/{len(p['slots'])}",percent=95*k/max(1,len(p['slots']))))
         if s.get('kind') not in ('R','A') or not s.get('anchor') or not s.get('ligandIds'):continue
         a=index_atoms(p);ids={i for i in s['ligandIds'] if i in a};host=s['sn'][0]
         if host not in a or s['anchor'] not in a or any(a[i].get('fixed') for i in ids):continue
@@ -1515,7 +1559,7 @@ class MoleculeView:
 
 class NativeApp:
     def __init__(self,root,initial=None,config_dir=None,recover_prompt=True):
-        self.root=root;self.root.title('Tin Oxo Studio 4.1 · Python / X11')
+        self.root=root;self.root.title(f'Tin Oxo Studio {VERSION} · Python / X11')
         self.root.geometry(f'{min(1540,root.winfo_screenwidth()-40)}x{min(980,root.winfo_screenheight()-60)}');self.root.minsize(1040,680)
         self.config_dir=Path(config_dir or os.environ.get('TINOXO_CONFIG_DIR',Path.home()/'.config'/'tinoxo-studio')).expanduser()
         self.config_path=self.config_dir/'settings.json';self.autosave_path=self.config_dir/'recovery.json'
@@ -1528,7 +1572,9 @@ class NativeApp:
         self.settings['element_colors']={**DEFAULT_ELEMENT_COLORS,**self.settings.get('element_colors',{})}
         register_local_fonts();normalize_font_preferences(self.settings);self.fonts=AppFonts(root,self.settings)
         self.selection_mode=tk.StringVar(value='multi');self.show_h=tk.BooleanVar(value=True);self.show_labels=tk.BooleanVar(value=False);self.core_only=tk.BooleanVar(value=False)
-        self.ff_var=tk.StringVar(value=self.settings.get('ff','MMFF94'));self.scope_var=tk.StringVar(value='리간드 / 코어 고정');self.core_var=tk.StringVar(value='12');self.cleanup_var=tk.BooleanVar(value=True)
+        self.ff_var=tk.StringVar(value=self.settings.get('ff','MMFF94'));self.scope_var=tk.StringVar(value=SCOPES['core_fixed']);self.core_var=tk.StringVar(value='12');self.cleanup_var=tk.BooleanVar(value=True)
+        self.respect_fixed_var=tk.BooleanVar(value=False);self.steps_var=tk.StringVar(value='500');self.scope_summary=tk.StringVar();self.job_percent=tk.DoubleVar(value=0)
+        self.elapsed_var=tk.StringVar();self.calculation_summary=tk.StringVar();self.calc_buttons=[];self.job_started=None
         self.status_var=tk.StringVar(value='준비됨 · 원자 선택 후 리간드를 추가하세요.');self.metrics_var=tk.StringVar();self.selection_var=tk.StringVar();self.busy_var=tk.StringVar(value='')
         self.build_ui();self.apply_theme();self.bind_keys();self.refresh()
         if self.fonts.resolved['notes']:self.log('글꼴: '+' / '.join(self.fonts.resolved['notes']))
@@ -1554,7 +1600,11 @@ class NativeApp:
     def button(self,parent,text,fn,style=None,**kwargs):
         b=ttk.Button(parent,text=text,command=self.call(fn),style=style or 'TButton',**kwargs);b.pack(fill='x',pady=3);return b
     def label(self,parent,text,style='TLabel',wrap=260):
-        w=ttk.Label(parent,text=text,style=style,wraplength=wrap,justify='left');w.pack(anchor='w',fill='x',pady=4);return w
+        w=ttk.Label(parent,text=text,style=style,wraplength=wrap,justify='left');w.pack(anchor='w',fill='x',pady=4)
+        # Nested calculation cards are narrower than the main sidebar.
+        # Follow their actual width so Korean explanations never clip at the edge.
+        w.bind('<Configure>',lambda e:w.configure(wraplength=max(40,e.width)))
+        return w
     def frame(self,parent,padding=10):return ttk.Frame(parent,padding=padding)
     def build_ui(self):
         menu=tk.Menu(self.root);self.root.configure(menu=menu)
@@ -1588,10 +1638,26 @@ class NativeApp:
         self.label(lf,'리간드 구조 팝업에서 결합 원자 선택\n공유결합: 선택 원자의 H 치환\n배위결합: 선택 원자가 donor\nL/P 가교: O donor 2점으로 부착','Muted.TLabel')
         self.label(lf,'03  구조 저장','Heading.TLabel');self.button(lf,'이름별 구조 보관함',self.bank_dialog)
         self.button(lf,'프로젝트 저장',self.save);self.button(lf,'XYZ 복사',self.copy_xyz)
-        self.label(calc,'초기 구조 최적화','Heading.TLabel');self.label(calc,'힘장')
-        ttk.Combobox(calc,textvariable=self.ff_var,values=['MMFF94','UFF'],state='readonly',width=22).pack(fill='x',pady=4)
-        self.label(calc,'범위');ttk.Combobox(calc,textvariable=self.scope_var,values=['리간드 / 코어 고정','전체 / 지정 고정 원자 유지'],state='readonly',width=25).pack(fill='x',pady=4)
-        self.button(calc,'선택 힘장으로 최적화',self.optimize,'Accent.TButton');self.button(calc,'코어 고정 · 겹침 줄이기',self.cleanup)
+        self.label(calc,'계산 범위 · 두 기능 공통 적용','Heading.TLabel')
+        ttk.Combobox(calc,textvariable=self.scope_var,values=list(SCOPES.values()),state='readonly',width=25).pack(fill='x',pady=4)
+        ttk.Checkbutton(calc,text='원자별 고정도 추가 적용',variable=self.respect_fixed_var).pack(anchor='w')
+        ttk.Label(calc,textvariable=self.scope_summary,wraplength=250,style='Muted.TLabel').pack(fill='x')
+        scope_buttons=ttk.Frame(calc);scope_buttons.pack(fill='x',pady=3)
+        ttk.Button(scope_buttons,text='이동 원자 선택',command=self.call(lambda:self.select_scope('movingIds'))).pack(side='left',expand=True,fill='x')
+        ttk.Button(scope_buttons,text='고정 원자 선택',command=self.call(lambda:self.select_scope('fixedIds'))).pack(side='left',expand=True,fill='x')
+        self.scope_var.trace_add('write',lambda *args:self.refresh_scope());self.respect_fixed_var.trace_add('write',lambda *args:self.refresh_scope())
+        self.label(calc,'모양 고정: 코어 기준, 각 연결 리간드를 강체 회전·이동. 개별 고정을 추가 적용하면 해당 조각 전체 고정.','Muted.TLabel')
+        self.label(calc,'최대 반복 수');ttk.Entry(calc,textvariable=self.steps_var).pack(fill='x')
+        ff_frame=ttk.LabelFrame(calc,text='힘장 최적화',padding=8);ff_frame.pack(fill='x',pady=10)
+        ttk.Combobox(ff_frame,textvariable=self.ff_var,values=['MMFF94','UFF'],state='readonly',width=22).pack(fill='x',pady=4)
+        self.calc_buttons.append(self.button(ff_frame,'선택 범위로 힘장 최적화',self.optimize,'Accent.TButton'))
+        self.label(ff_frame,'위 범위 적용 · 전체 구조 파라미터 검사. Sn 미지원 시 아래 조각 계산 사용.','Muted.TLabel')
+        self.calc_buttons.append(self.button(ff_frame,'리간드 내부만 최적화 (4.x)',lambda:self.optimize('ligands')))
+        self.label(ff_frame,'별도 범위: 코어·경계·개별 고정 유지. 위 범위 선택 미적용.','Muted.TLabel')
+        cleanup_frame=ttk.LabelFrame(calc,text='겹침 줄이기 · 힘장 사용 안 함',padding=8);cleanup_frame.pack(fill='x',pady=10)
+        self.calc_buttons.append(self.button(cleanup_frame,'선택 범위로 겹침 줄이기',self.cleanup))
+        self.label(cleanup_frame,'위 범위 적용 · 접촉 기준과 초기 결합 형태를 고려하는 기하학적 정리.','Muted.TLabel')
+        ttk.Label(calc,textvariable=self.calculation_summary,wraplength=250,style='Status.TLabel').pack(fill='x',pady=5)
         ttk.Checkbutton(calc,text='부착 시 자동 겹침 조절',variable=self.cleanup_var).pack(anchor='w',pady=5)
         self.label(calc,'전체 최적화는 파라미터 지원을 검사합니다. 리간드 최적화 에너지는 H로 막은 조각의 값입니다.','Muted.TLabel')
         self.snc_var=tk.StringVar(value='2.15');self.label(calc,'기존 R 자리 Sn–C 결합길이 / Å')
@@ -1639,9 +1705,12 @@ class NativeApp:
         self.button(contacts_frame,'접촉 다시 검사',self.refresh_contacts);self.button(contacts_frame,'기준 조절',self.contact_dialog)
         self.label(contacts_frame,'1–2, 1–3 및 코어 내부 쌍 제외.\n근접 접촉 여부는 결합의 존재나 안정성 판정과 다릅니다.','Muted.TLabel')
         status=ttk.Frame(self.root,padding=(12,6));status.pack(fill='x')
-        ttk.Label(status,textvariable=self.status_var,style='Muted.TLabel').pack(side='left',fill='x',expand=True)
-        ttk.Label(status,textvariable=self.busy_var,style='Status.TLabel').pack(side='left')
-        ttk.Button(status,text='작업 취소',command=self.cancel_event.set).pack(side='right')
+        ttk.Label(status,textvariable=self.status_var,style='Muted.TLabel',wraplength=1000).pack(fill='x')
+        jobrow=ttk.Frame(status);jobrow.pack(fill='x',pady=(4,0))
+        ttk.Progressbar(jobrow,variable=self.job_percent,maximum=100,length=160).pack(side='left',padx=(0,10))
+        ttk.Label(jobrow,textvariable=self.busy_var,style='Status.TLabel',wraplength=700).pack(side='left',fill='x',expand=True)
+        ttk.Label(jobrow,textvariable=self.elapsed_var,style='Muted.TLabel').pack(side='left',padx=8)
+        self.cancel_button=ttk.Button(jobrow,text='작업 취소',command=self.cancel_event.set,state='disabled');self.cancel_button.pack(side='right')
     def textbox(self,parent,height=12):
         box=tk.Text(parent,height=height,wrap='none',undo=False,borderwidth=0,padx=8,pady=6)
         sy=ttk.Scrollbar(parent,orient='vertical',command=box.yview);sx=ttk.Scrollbar(parent,orient='horizontal',command=box.xview)
@@ -1696,7 +1765,42 @@ class NativeApp:
         for canvas in self.scroll_canvases:
             if canvas.winfo_exists():canvas.configure(bg=p['panel'])
         self.fonts.apply_widgets(self.root)
+        self.install_clipboard_bindings(self.root)
         if hasattr(self,'view'):self.view.draw()
+    def install_clipboard_bindings(self,parent):
+        # PRIMARY text selection must not replace the explicit CLIPBOARD during
+        # coordinate refresh. Fetch X11 clipboard contents anew on every paste.
+        tag='TinOxoClipboard'
+        if not getattr(self,'_clipboard_bound',False):
+            for event,action in [('<<Copy>>','copy'),('<<Cut>>','cut'),('<<Paste>>','paste')]:
+                self.root.bind_class(tag,event,lambda e,action=action:self.clipboard_edit(e.widget,action))
+            self._clipboard_bound=True
+        for widget in parent.winfo_children():
+            if isinstance(widget,(tk.Text,tk.Entry,ttk.Entry,ttk.Combobox)):
+                widget.configure(exportselection=False)
+                tags=widget.bindtags()
+                if tag not in tags:widget.bindtags((tags[0],tag,*tags[1:]))
+            self.install_clipboard_bindings(widget)
+    def clipboard_edit(self,widget,action):
+        is_text=isinstance(widget,tk.Text)
+        writable=str(widget.cget('state')) not in ('disabled','readonly')
+        try:
+            selected=bool(widget.tag_ranges('sel')) if is_text else widget.selection_present()
+            if action in ('copy','cut'):
+                if not selected:return 'break'
+                text=widget.get('sel.first','sel.last') if is_text else widget.get()[widget.index('sel.first'):widget.index('sel.last')]
+                self.root.clipboard_clear();self.root.clipboard_append(text);self.root.update_idletasks()
+                if action=='cut' and writable:widget.delete('sel.first','sel.last')
+            elif writable:
+                try:text=self.root.clipboard_get(type='UTF8_STRING')
+                except tk.TclError:text=self.root.clipboard_get()
+                if selected:
+                    start=widget.index('sel.first');widget.delete('sel.first','sel.last')
+                    if is_text:widget.mark_set('insert',start)
+                    else:widget.icursor(start)
+                widget.insert('insert',text)
+        except tk.TclError as exc:self.log('클립보드 텍스트를 읽지 못했습니다: '+str(exc))
+        return 'break'
     def toggle_theme(self):self.settings['theme']='light' if self.settings['theme']=='dark' else 'dark';self.apply_theme();self.save_settings()
     def bind_keys(self):
         for key,fn in [('<Control-s>',self.save),('<Control-o>',self.open_file),('<Control-z>',self.undo),('<Control-Shift-Z>',self.redo),
@@ -1721,6 +1825,7 @@ class NativeApp:
         if self.future:
             self.history.append((clone(self.project),clone(self.bank),self.selection.copy()));self.restore_state(self.future.pop())
     def refresh(self):
+        self.refresh_scope()
         a=index_atoms(self.project);self.selection=[i for i in self.selection if i in a];self.select(self.selection)
         self.xyz_text.delete('1.0','end');self.xyz_text.insert('1.0',export_xyz(self.project))
         self.slot_tree.delete(*self.slot_tree.get_children())
@@ -1728,7 +1833,7 @@ class NativeApp:
         charge=self.project['metadata'].get('totalCharge');qs='미지정' if charge is None else str(charge)+' (사용자 확인)'
         self.metrics_var.set(f"{formula(self.project)}  ·  원자 {len(self.project['atoms'])}  ·  결합 {len(self.project['bonds'])}  ·  채운 자리 {sum(bool(s.get('smiles')) for s in self.project['slots'])}  ·  전하 {qs}")
         self.core_note.configure(text=self.project['metadata'].get('status','사용자 구조')+'\n'+self.project['metadata'].get('coordinateNote','좌표 단위 Å'))
-        self.root.title(('● ' if self.dirty else '')+'Tin Oxo Studio 4.1 — '+self.project['title'])
+        self.root.title(('● ' if self.dirty else '')+f'Tin Oxo Studio {VERSION} · X11 — '+self.project['title'])
         self.refresh_contacts();self.view.draw()
     def select(self,ids):
         a=index_atoms(self.project);self.selection=list(dict.fromkeys(i for i in ids if i in a))
@@ -1781,11 +1886,11 @@ class NativeApp:
         n=int(self.core_var.get());base=template(n);ff=self.ff_var.get()
         def work(cancel,progress):
             for k,s in enumerate(list(base['slots'])):
-                if progress:progress(f"예제 {k+1}/{len(base['slots'])}")
+                if progress:progress(dict(message=f"예제 {k}/{len(base['slots'])}자리 완료",percent=95*k/max(1,len(base['slots']))))
                 smiles='[*:1]CCCC' if n==12 else '[*:1]C'
                 if s['kind']=='L':smiles='CC(=O)[O-]'
                 elif s['kind']=='P':smiles='CP(C)(=O)[O-]'
-                attach_fragment(base,smiles,slot_id=s['id'],ff_choice=ff,cancel=cancel,cleanup=True)
+                attach_fragment(base,smiles,slot_id=s['id'],ff_choice=ff,cancel=cancel,cleanup=True,progress=batch_progress(progress,k,len(base['slots']),s['id']))
             return base,'예제를 생성했습니다.'
         self.run_task('예제 생성',work)
     def hydroxo(self):
@@ -1808,7 +1913,9 @@ class NativeApp:
         self.log_text.insert('end',datetime.now().strftime('%H:%M:%S')+'  '+text+'\n');self.log_text.see('end');self.status_var.set(text.split('\n')[0][:160])
     def run_task(self,name,fn):
         if self.busy:raise ValueError('진행 중인 작업을 완료하거나 취소하세요.')
-        self.snapshot();self.busy=True;self.cancel_event.clear();self.busy_var.set(name+'…');self.task_name=name;self.task_revision=self.revision
+        self.busy=True;self.cancel_event.clear();self.busy_var.set('0% · '+name+'…');self.job_percent.set(0);self.task_name=name;self.task_revision=self.revision;self.job_started=time.monotonic();self.elapsed_var.set('0초 · 작업량 기준')
+        for button in self.calc_buttons:button.configure(state='disabled')
+        self.cancel_button.configure(state='normal');self._job_controls_busy=True
         def worker():
             try:self.event_queue.put(('done',fn(self.cancel_event,lambda s:self.event_queue.put(('progress',s)))))
             except Exception as exc:self.event_queue.put(('error',(str(exc),traceback.format_exc())))
@@ -1817,25 +1924,52 @@ class NativeApp:
         try:
             while True:
                 kind,data=self.event_queue.get_nowait()
-                if kind=='progress':self.busy_var.set(data)
+                if kind=='progress':
+                    if isinstance(data,dict):
+                        self.job_percent.set(max(self.job_percent.get(),min(99,data['percent'])));self.busy_var.set(f"{int(self.job_percent.get())}% · {data['message']}")
+                    else:self.busy_var.set(f'{int(self.job_percent.get())}% · {data}')
                 elif kind=='done':
                     self.busy=False;self.busy_var.set('')
-                    if self.cancel_event.is_set():self.log('작업을 취소했습니다. 구조는 적용하지 않았습니다.')
+                    if self.cancel_event.is_set():self.busy_var.set('취소됨 · 원본 유지');self.log('작업을 취소했습니다. 구조는 적용하지 않았습니다.')
                     elif self.revision!=self.task_revision:self.log('작업 중 구조가 변경되어 계산 결과를 적용하지 않았습니다.')
                     else:
-                        self.project,result=data;self.changed(True);self.log(result if isinstance(result,str) else json.dumps(result,ensure_ascii=False,indent=2))
+                        self.snapshot();self.project,result=data;self.job_percent.set(100);self.busy_var.set('100% · 작업 완료');self.changed(True);self.show_calculation_result(result);self.log(result if isinstance(result,str) else json.dumps(result,ensure_ascii=False,indent=2))
                 else:
-                    self.busy=False;self.busy_var.set('');self.log(data[0]);self.log_text.insert('end',data[1]+'\n')
+                    self.busy=False;self.busy_var.set('취소됨 · 원본 유지' if self.cancel_event.is_set() else '오류 · 원본 유지');self.log(data[0]);self.log_text.insert('end',data[1]+'\n')
                     if not self.cancel_event.is_set():messagebox.showerror(self.task_name,data[0],parent=self.root)
         except queue.Empty:pass
+        if self.busy and self.job_started is not None:
+            elapsed=f'{int(time.monotonic()-self.job_started)}초 · 작업량 기준'
+            if self.elapsed_var.get()!=elapsed:self.elapsed_var.set(elapsed)
+        elif getattr(self,'_job_controls_busy',False):
+            for button in self.calc_buttons:button.configure(state='normal')
+            self.cancel_button.configure(state='disabled');self._job_controls_busy=False
         self.poll_timer=self.root.after(100,self.poll_worker)
-    def optimize(self):
-        base=clone(self.project);ff=self.ff_var.get();scope='all' if self.scope_var.get().startswith('전체') else 'ligands';self.settings['ff']=ff
-        def task(cancel,progress):return optimize_project(base,ff,scope,cancel=cancel,progress=progress)
+    def show_calculation_result(self,result):
+        if isinstance(result,str):self.calculation_summary.set(result);return
+        results=result if isinstance(result,list) else [result]
+        if not results:return
+        unfinished=sum(r.get('converged') is False for r in results)
+        first=results[0];summary=f'미수렴 {unfinished}건 · 반복 수/구조 확인' if unfinished else '계산 완료'
+        if 'beforeContacts' in first:summary+=f"\n접촉 {first['beforeContacts']} → {first['afterContacts']}쌍\n겹침 점수 {first['beforeOverlapScore']:.4f} → {first['afterOverlapScore']:.4f} (임의 단위)"
+        elif len(results)==1 and 'before_kcal_mol' in first:summary+=f"\n{first['before_kcal_mol']:.4f} → {first['after_kcal_mol']:.4f} kcal/mol"
+        else:summary+=f'\n리간드 {len(results)}개 조각 처리'
+        self.calculation_summary.set(summary)
+    def selected_scope(self):return next(k for k,v in SCOPES.items() if v==self.scope_var.get())
+    def select_scope(self,key):self.select(scope_plan(self.project,self.selected_scope(),self.respect_fixed_var.get())[key])
+    def refresh_scope(self):
+        try:
+            plan=scope_plan(self.project,self.selected_scope(),self.respect_fixed_var.get())
+            self.scope_summary.set(f"고정 {plan['fixedCount']} · 이동 {plan['movingCount']} 원자")
+        except ValueError as exc:self.scope_summary.set(str(exc))
+    def optimize(self,scope=None):
+        base=clone(self.project);ff=self.ff_var.get();scope=scope or self.selected_scope();self.settings['ff']=ff
+        steps=int(self.steps_var.get());respect=self.respect_fixed_var.get()
+        def task(cancel,progress):return optimize_project(base,ff,scope,steps=steps,cancel=cancel,progress=progress,respect_fixed=respect)
         self.run_task('초기 구조 최적화',task)
     def cleanup(self):
-        base=clone(self.project)
-        def task(cancel,progress):return cleanup_project(base,cancel),'코어와 결합 길이를 유지하며 리간드 회전을 정리했습니다.'
+        base=clone(self.project);scope=self.selected_scope();steps=int(self.steps_var.get());respect=self.respect_fixed_var.get()
+        def task(cancel,progress):return cleanup_project(base,cancel,scope,steps,progress,respect),base['metadata']['lastCleanup']
         self.run_task('겹침 줄이기',task)
     def change_sn_c(self):
         length=float(self.snc_var.get())
@@ -1901,12 +2035,17 @@ class NativeApp:
         try:self.autosave_path.unlink(missing_ok=True)
         except OSError:pass
         self.root.destroy()
-    def copy_xyz(self):self.root.clipboard_clear();self.root.clipboard_append(export_xyz(self.project));self.log('XYZ를 클립보드에 복사했습니다.')
+    def copy_xyz(self):
+        text=export_xyz(self.project)
+        self.root.clipboard_clear();self.root.clipboard_append(text);self.root.update_idletasks()
+        if self.root.clipboard_get()!=text:raise ValueError('클립보드가 갱신되지 않았습니다. XYZ 내보내기를 사용하세요.')
+        self.log('현재 구조의 XYZ를 클립보드에 복사했습니다.')
     def dialog(self,title,size='850x650'):
         w,h=map(int,size.split('x'));w=min(w,self.root.winfo_screenwidth()-60);h=min(h,self.root.winfo_screenheight()-80)
         win=tk.Toplevel(self.root);win.title(title);win.geometry(f'{w}x{h}');win.transient(self.root);win.configure(bg=self.palette['panel']);return win
     def library_dialog(self,receiver=None):
         win=self.dialog('리간드 / 작용기 선택 · 내 SMILES','920x650');frame=self.frame(win);frame.pack(fill='both',expand=True)
+        self.label(frame,'산 전구체는 H가 붙은 중성 형태입니다. L/P 가교 부착 시 donor OH는 탈양성자화합니다. 니트로기의 형식전하는 유지합니다.','Muted.TLabel',860)
         search=tk.StringVar();ttk.Label(frame,text='검색 · 이름 / 종류 / SMILES').pack(anchor='w');ttk.Entry(frame,textvariable=search).pack(fill='x',pady=4)
         tree=self.tree(frame,['category','name','smiles','mode'],['종류','이름','SMILES','방식'],height=14)
         name=tk.StringVar();smiles=tk.StringVar();mode=tk.StringVar(value='covalent')
@@ -2020,18 +2159,17 @@ class NativeApp:
             base=clone(self.project);rows=clone(plans);ff=self.ff_var.get();replace=replace_h.get();clean=self.cleanup_var.get()
             target_map={f"{a[i]['element']}{i}":i for i in hosts}
             def task(cancel,progress):
-                count=0
+                count=0;total=sum(1 if slot_id else len(hosts) if row['target']=='선택 원자 모두' else 1 for row in rows)
                 for row in rows:
                     ps=hosts if row['target']=='선택 원자 모두' or slot_id else [target_map[row['target']]]
                     ds={'+X':[1,0,0],'-X':[-1,0,0],'+Y':[0,1,0],'-Y':[0,-1,0],'+Z':[0,0,1],'-Z':[0,0,-1]}
                     if slot_id:
                         attach_fragment(base,row['smiles'],slot_id=slot_id,mode=row['mode'],length=float(row['length']) if row['length'] else None,
-                            direction=ds.get(row['direction']),replace_h=replace,ff_choice=ff,cleanup=clean,cancel=cancel,attachment_index=row['attachment_index']);count+=1
+                            direction=ds.get(row['direction']),replace_h=replace,ff_choice=ff,cleanup=clean,cancel=cancel,attachment_index=row['attachment_index'],progress=batch_progress(progress,count,total,slot_id));count+=1
                     else:
                         for parent in ps:
-                            progress(f'{parent}번 원자에 리간드 추가…')
                             attach_fragment(base,row['smiles'],parent=parent,mode=row['mode'],length=float(row['length']) if row['length'] else None,
-                                direction=ds.get(row['direction']),replace_h=replace,ff_choice=ff,cleanup=clean,cancel=cancel,attachment_index=row['attachment_index']);count+=1
+                                direction=ds.get(row['direction']),replace_h=replace,ff_choice=ff,cleanup=clean,cancel=cancel,attachment_index=row['attachment_index'],progress=batch_progress(progress,count,total,str(parent)));count+=1
                 return base,f'리간드 {count}개 적용 · ETKDGv3 + {ff}'
             self.run_task('리간드 부착',task);win.destroy()
         row=ttk.Frame(frame);row.pack(fill='x',pady=8)
@@ -2056,9 +2194,10 @@ class NativeApp:
             if current[0]:drafts[current[0]]=var.get().strip()
             base=clone(self.project);ff=self.ff_var.get();original={s['id']:s.get('smiles','') for s in base['slots']}
             def task(cancel,progress):
-                for sid,smiles in drafts.items():
-                    if original[sid]==smiles:continue
-                    progress(sid+' 편집');attach_fragment(base,smiles,slot_id=sid,ff_choice=ff,cancel=cancel)
+                changed=[(sid,smiles) for sid,smiles in drafts.items() if original[sid]!=smiles]
+                for k,(sid,smiles) in enumerate(changed):
+                    progress(dict(message=sid+' 편집',percent=95*k/max(1,len(changed))))
+                    attach_fragment(base,smiles,slot_id=sid,ff_choice=ff,cancel=cancel,progress=batch_progress(progress,k,len(changed),sid))
                 return base,'자리별 리간드를 적용했습니다.'
             self.run_task('자리별 리간드 편집',task);win.destroy()
         self.button(frame,'모든 변경 적용',apply,'Accent.TButton');tree.bind('<<TreeviewSelect>>',chosen);refill();self.apply_theme()
@@ -2165,10 +2304,18 @@ class NativeApp:
         win=self.dialog('비결합 접촉 검사 기준','600x430');frame=self.frame(win);frame.pack(fill='both',expand=True)
         c=clone(self.project['metadata'].get('contactCriteria',self.settings['contact']));vars={k:tk.StringVar(value=str(v)) for k,v in c.items()}
         self.label(frame,'radii: max(vdW 반경합 × 계수, 공유반경합 × 계수)\nminimum: 모든 검사쌍에 공통 최소 거리 적용','Muted.TLabel',550)
+        fields=ttk.Frame(frame);fields.pack(fill='x');rows={}
         for k,label in [('mode','방식'),('vdw','vdW 계수'),('covalent','공유반경 계수'),('minimum','공통 최소 거리 Å')]:
-            ttk.Label(frame,text=label).pack(anchor='w');w=ttk.Combobox(frame,textvariable=vars[k],values=['radii','minimum'],state='readonly') if k=='mode' else ttk.Entry(frame,textvariable=vars[k]);w.pack(fill='x',pady=3)
+            row=ttk.Frame(fields);rows[k]=row
+            ttk.Label(row,text=label).pack(anchor='w');w=ttk.Combobox(row,textvariable=vars[k],values=['radii','minimum'],state='readonly') if k=='mode' else ttk.Entry(row,textvariable=vars[k]);w.pack(fill='x',pady=3)
+        def sync_fields(*args):
+            for k,row in rows.items():
+                row.pack_forget()
+                if k=='mode' or (k=='minimum')==(vars['mode'].get()=='minimum'):row.pack(fill='x')
+        vars['mode'].trace_add('write',sync_fields);sync_fields()
         def apply():
-            nc={k:vars[k].get() if k=='mode' else float(vars[k].get()) for k in vars}
+            nc=clone(c);nc['mode']=vars['mode'].get()
+            for k in ('minimum',) if nc['mode']=='minimum' else ('vdw','covalent'):nc[k]=float(vars[k].get())
             if not .1<=nc['vdw']<=2 or not .5<=nc['covalent']<=2 or not .5<=nc['minimum']<=6:raise ValueError('vdW 0.1–2, 공유반경 0.5–2, 공통 거리 0.5–6 Å 범위입니다.')
             self.snapshot();self.project['metadata']['contactCriteria']=nc;self.settings['contact']=nc;self.changed();win.destroy()
         self.button(frame,'적용',apply,'Accent.TButton');self.button(frame,'기본값 복원',lambda:[vars[k].set(str(v)) for k,v in DEFAULTS['contact'].items()]);self.apply_theme()
@@ -2448,7 +2595,7 @@ class NativeApp:
         self.label(frame,'XYZ에는 결합 정보가 없고 PDB에는 결합차수가 없습니다. 전체 편집 정보를 보존하려면 프로젝트 JSON을 함께 저장하세요. HTML은 기존 웹 기능을 실행하며 새로운 Python 기능은 .py에서 실행합니다.','Muted.TLabel',600);self.apply_theme()
     def help_dialog(self):
         win=self.dialog('사용 안내 / 과학적 범위 / 출처','1000x780');frame=self.frame(win);frame.pack(fill='both',expand=True);text=self.textbox(frame,height=28)
-        guide='''Tin Oxo Studio 4.1 · Python/Tk/X11
+        guide='''Tin Oxo Studio 5.0 · Python/Tk/X11
 
 실행: python TinOxoStudio.py
 서버 Python에 Tk, RDKit, ASE, NumPy, SciPy, Pillow가 필요합니다.
@@ -2468,7 +2615,13 @@ DISPLAY는 SSH가 설정한 값을 유지합니다. 이 앱은 OpenGL을 사용�
 가교 부착: 유기 구조를 늘여 맞추지 않고 문헌 donor/center 위치로 강체 정렬합니다. fitRMSD를 보고서에서 확인하세요.
 리간드 최적화: 코어/부착 경계 고정, 끊은 공유결합을 H로 막은 조각의 MMFF94 또는 UFF를 적용합니다.
 그 에너지는 클러스터 총에너지가 아니며 전체 최적화와 직접 비교하지 않습니다.
-전체 최적화: 지정 고정 원자를 유지하며 모든 파라미터가 있을 때만 실행합니다. 금속의 파라미터 존재는 정확성 보장이 아닙니다.
+계산 범위: 코어만 고정 / 모든 원자 움직이기 / 코어만 움직이기 / 코어·리간드 모양만 고정.
+같은 범위를 힘장과 겹침 줄이기에 적용합니다. 원자별 고정 추가 적용은 기본 꺼짐입니다.
+모양 고정은 코어를 기준으로 연결된 각 리간드를 강체 이동하며 내부 길이·각도·이면각을 유지합니다.
+힘장은 전체 파라미터가 있을 때만 실행합니다. 금속의 파라미터 존재는 정확성 보장이 아닙니다.
+별도 리간드 내부 최적화 버튼은 범위 선택과 무관하게 코어·경계·개별 고정을 유지합니다.
+겹침 줄이기는 접촉 벌점 및 초기 결합/1–3 거리 제약을 쓰는 기하학적 정리로, 힘장 에너지가 아닙니다.
+진행률은 반복 예산/처리 작업량 기준입니다. 완료 100%와 최적화 수렴 여부는 다릅니다.
 
 결합 검사: 원본/SMILES의 명시적 그래프를 보존합니다. ASE는 누락 후보를 제안하고 사용자가 추가합니다.
 XYZ 읽기: 비금속 분자는 RDKit xyz2mol, 금속 포함 구조는 ASE 기반 잠정 연결을 표시합니다.
@@ -2500,38 +2653,46 @@ VESTA는 원소별 색상 숫자만 참조했습니다. VESTA 실행파일은 �
 
 
 def main(argv=None):
-    parser=argparse.ArgumentParser(description=f'Tin Oxo Studio {VERSION} — local browser workspace')
+    parser=argparse.ArgumentParser(description=f'Tin Oxo Studio {VERSION} — Python/Tk/X11 GUI (default)')
     parser.add_argument('project',nargs='?',help='project JSON, legacy HTML, XYZ, MOL/SDF, PDB, CIF')
     parser.add_argument('--check',action='store_true',help='check dependencies and core templates without DISPLAY')
     parser.add_argument('--export-core',choices=['3','6','12'],help='export bare core as XYZ without GUI')
     parser.add_argument('--output',help='output file for --export-core')
     parser.add_argument('--config-dir',help='settings/recovery directory')
-    parser.add_argument('--native',action='store_true',help='use the legacy Tk/X11 editor')
+    interface=parser.add_mutually_exclusive_group()
+    interface.add_argument('--native',action='store_true',help='use Tk/X11 GUI (default; accepted for compatibility)')
+    interface.add_argument('--web',action='store_true',help='explicitly select the optional localhost browser interface')
     parser.add_argument('--port',type=int,help='web port (prompt when omitted; default 8765; 0 selects a free port)')
     parser.add_argument('--host',default='127.0.0.1',help='bind address (default: 127.0.0.1)')
     parser.add_argument('--no-browser',action='store_true',help='print the URL without opening a browser (HPC/SSH)')
     parser.add_argument('--open-browser',action='store_true',help='open a browser (default; retained for 4.2 compatibility)')
-    parser.add_argument('--fresh',action='store_true',help='start with a bare Sn12 core instead of recovering the web workspace')
+    parser.add_argument('--fresh',action='store_true',help='start with a bare Sn12 core without recovery')
     args=parser.parse_args(argv)
     if args.check:
         import ase
         print(f'TinOxoStudio {VERSION} | Python {sys.version.split()[0]} | RDKit {rdBase.rdkitVersion} | ASE {ase.__version__}')
         for n in (3,6,12):
             p=template(n);print(f'Sn{n}: {len(p["atoms"])} atoms / {len(p["bonds"])} bonds / {formula(p)}')
-        print('Browser UI: Python HTTP server; Tk / DISPLAY / Node.js are not required.');return 0
+        try:
+            import tkinter
+            print(f'Default UI: Tk {tkinter.TkVersion} / X11. GUI launch needs a working DISPLAY; this check does not open a window.')
+        except ImportError:print('Default UI requires Tk. Install conda-forge tk or your OS python3-tk package.')
+        print('Optional browser UI: explicitly add --web. Node.js is not required.');return 0
     if args.export_core:
         text=export_xyz(template(int(args.export_core)))
         if args.output:atomic_write(args.output,text)
         else:print(text,end='')
         return 0
-    if not args.native:
+    if args.web:
         from TinOxoWeb import run
         return run(args)
+    if args.port is not None or args.no_browser or args.open_browser or args.host!='127.0.0.1':
+        parser.error('웹 옵션은 --web과 함께 사용하세요. X11 GUI는 python TinOxoStudio.py 로 실행합니다.')
     import_tk()
     try:root=tk.Tk();root.tk.call('encoding','system','utf-8')
     except tk.TclError as exc:
         print('X11 GUI를 열 수 없습니다: '+str(exc),file=sys.stderr)
         print('MobaXterm X server / SSH X11 forwarding과 echo $DISPLAY를 확인하세요. DISPLAY를 임의로 :0으로 바꾸지 마세요.',file=sys.stderr);return 2
-    app=NativeApp(root,args.project,config_dir=args.config_dir);root.mainloop();return 0
+    app=NativeApp(root,args.project,config_dir=args.config_dir,recover_prompt=not args.fresh);root.mainloop();return 0
 
 if __name__=='__main__':raise SystemExit(main())

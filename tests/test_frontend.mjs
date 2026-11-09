@@ -109,7 +109,7 @@ async function until(check, message, timeout = 12000) {
     if (await check()) return;
     await wait(30);
   }
-  throw Error(message + "; toast=" + $("toast").textContent);
+  throw Error(message + "; toast=" + $("toast").textContent + "; connection=" + $("connection").textContent);
 }
 const click = (el) => {
   assert.ok(el, "missing element");
@@ -438,6 +438,82 @@ await until(
 );
 close();
 passed("large geometry lists page without losing row selection");
+// v5 shared scope controls are grounded in the actual backend plan.
+const scopeProject = (await current()).project;
+const coreCount = scopeProject.atoms.filter(a => a.core).length;
+assert.equal($("scope").options.length, 4);
+assert.equal($("respectFixed").checked, false);
+set($("scope"), "core_only");
+await until(() => $("scopeCounts").textContent.includes(`이동 ${coreCount}`), "core-only preview");
+await action("selectMoving");
+assert.equal(Number($("selectedCount").textContent), coreCount);
+set($("scope"), "all");
+await until(() => $("scopeCounts").textContent.includes(`이동 ${scopeProject.atoms.length}`), "all-free preview");
+$("respectFixed").checked = true;
+$("respectFixed").dispatchEvent(new win.Event("change"));
+const manualCount = scopeProject.atoms.filter(a => a.fixed).length;
+await until(() => $("scopeCounts").textContent.includes(`고정 ${manualCount}`), "manual fixed override");
+set($("scope"), "rigid");
+assert.ok($("scopeDescription").textContent.includes("강체") || $("scopeDescription").textContent.includes("회전·이동"));
+passed("four scope previews, atom selection and manual-fixed override");
+await action("contactSettings");
+set($("contactMode"), "minimum");
+assert.equal($("contactVdw").closest("label").hidden, true);
+assert.equal($("contactMinimum").closest("label").hidden, false);
+set($("contactMode"), "radii");
+assert.equal($("contactMinimum").disabled, true);
+assert.equal($("contactVdw").closest("label").hidden, false);
+$("contactMinimum").value = ""; // Hidden invalid field must never be submitted.
+click($("applyContacts"));
+await until(() => !$("modal").open, "inactive contact input ignored");
+assert.equal((await current()).settings.contact.minimum, 2.1);
+passed("contact methods show/validate active fields and retain inactive settings");
+await action("copy");
+const oldCopy = copied;
+let latest = await current();
+const editedId = latest.project.atoms[0].id;
+const external = await realFetch(base + "/api/edit/atom", {
+  method: "POST", headers: { "X-Tinoxo-Token": token, "Content-Type": "application/json" },
+  body: JSON.stringify({ revision: latest.revision, ids: [editedId], values: { ...latest.project.atoms[0], x: 7.123456789 } }),
+});
+assert.equal(external.status, 200);
+await action("copy");
+await until(() => copied.includes("7.123456789"), "copy fetches latest cross-tab revision");
+assert.notEqual(copied, oldCopy);
+passed("XYZ clipboard refreshes after an external revision");
+const normalWrite = navigator.clipboard.writeText;
+navigator.clipboard.writeText = async () => { throw Error("clipboard denied"); };
+document.execCommand = command => {
+  assert.equal(command, "copy"); copied = document.activeElement.value; return true;
+};
+copied = "stale";
+await action("copy");
+await until(() => copied.includes("7.123456789"), "clipboard legacy fallback");
+document.execCommand = () => false;
+const downloadCount = downloads.length;
+await action("copy");
+await until(() => $("copyText"), "manual clipboard fallback");
+assert.ok($("copyText").value.includes("7.123456789"));
+assert.equal(downloads.length, downloadCount);
+close(); navigator.clipboard.writeText = normalWrite;
+passed("denied clipboard uses fresh copy fallback or selectable manual text");
+$("respectFixed").checked = false;
+set($("scope"), "core_only");
+set($("optSteps"), "10");
+const beforeCleanup = (await current()).project;
+await action("cleanup");
+await until(async () => (await current()).job?.status === "done", "scope-aware cleanup", 20000);
+await until(() => $("jobPercent").textContent === "100%", "completed percentage");
+latest = await current();
+assert.equal(latest.project.metadata.lastCleanup.scope, "core_only");
+assert.equal(latest.project.metadata.lastCleanup.respectFixed, false);
+for (const a of beforeCleanup.atoms.filter(a => !a.core)) {
+  const b = latest.project.atoms.find(b => b.id === a.id);
+  assert.deepEqual([b.x,b.y,b.z], [a.x,a.y,a.z]);
+}
+assert.equal($("calculationResult").classList.contains("hidden"), false);
+assert.ok($("calculationResult").textContent.includes("임의 단위"));
+passed("cleanup receives scope and displays percentage, units and completion result");
 assert.deepEqual(errors, []);
 console.log(
   `DOM integration: ${count} scenarios passed (Canvas mocked; browser/GPU not tested).`,

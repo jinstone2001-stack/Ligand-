@@ -143,8 +143,8 @@ class LauncherTests(unittest.TestCase):
   self.assertEqual(w.choose_port(None,is_interactive=False),8765);self.assertEqual(w.choose_port(0),0)
   for invalid in [-1,65536,'abc']:
    with self.assertRaises(ValueError):w.choose_port(invalid)
- def test_cli_defaults_to_web_without_tk(self):
-  with mock.patch.object(w,'run',return_value=0) as run: self.assertEqual(c.main(['--port','8877','--no-browser']),0)
+ def test_cli_explicit_web_without_tk(self):
+  with mock.patch.object(w,'run',return_value=0) as run: self.assertEqual(c.main(['--web','--port','8877','--no-browser']),0)
   args=run.call_args.args[0];self.assertEqual(args.port,8877);self.assertTrue(args.no_browser);self.assertFalse(args.native)
  def test_occupied_port_fails_without_browser_open(self):
   with tempfile.TemporaryDirectory() as d,socket.socket() as sock:
@@ -178,7 +178,7 @@ class LauncherTests(unittest.TestCase):
     self.assertEqual(w.run(args),0)
    self.assertIn('브라우저 자동 열기 실패: desktop opener unavailable',output.getvalue())
    self.assertGreaterEqual(output.getvalue().count(opener.call_args.args[0]),2)
- def test_real_cli_with_ssh_opens_actual_server_url_by_default(self):
+ def test_real_cli_with_ssh_web_mode_opens_actual_server_url(self):
   from urllib.parse import urlsplit,parse_qs
   child='''from pathlib import Path
 import json,runpy,sys,webbrowser
@@ -187,7 +187,7 @@ def opener(url,new=0,autoraise=True):
     marker.write_text(json.dumps(dict(url=url,new=new)),encoding="utf-8")
     return True
 webbrowser.open=opener
-sys.argv=[app,"--port","0","--fresh","--config-dir",workspace]
+sys.argv=[app,"--web","--port","0","--fresh","--config-dir",workspace]
 sys.path.insert(0,str(Path(app).parent))
 runpy.run_path(app,run_name="__main__")
 '''
@@ -218,7 +218,7 @@ runpy.run_path(app,run_name="__main__")
  def test_real_cli_serves_selected_port_without_display(self):
   from urllib.parse import urlsplit,parse_qs
   with tempfile.TemporaryDirectory() as d:
-   process=subprocess.Popen([sys.executable,str(Path(c.__file__).resolve()),'--port','0','--no-browser','--fresh','--config-dir',d],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,env={**os.environ,'DISPLAY':''})
+   process=subprocess.Popen([sys.executable,str(Path(c.__file__).resolve()),'--web','--port','0','--no-browser','--fresh','--config-dir',d],stdout=subprocess.PIPE,stderr=subprocess.PIPE,text=True,env={**os.environ,'DISPLAY':''})
    lines=queue.Queue()
    def read():
     for line in process.stdout:lines.put(line.strip())

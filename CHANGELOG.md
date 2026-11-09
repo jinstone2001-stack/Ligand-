@@ -1,5 +1,16 @@
 # Changes
 
+## 5.0.0 — 2026-11-09
+
+- Make Python/Tk/X11 the default GUI again, as explicitly requested for v5.0. `--native` remains an alias; `--web` is required for browser mode and web-only options. Update native title, help, Conda Tk dependency and launch regressions.
+- Share four scope plans between full-structure MMFF/UFF and contact cleanup: core fixed, all free, core only, and exact rigid ligand bodies with the core as reference. Expose actual fixed/moving counts, selection buttons and an optional per-atom fixed override (off by default in the UI).
+- Preserve internal shape through rigid transforms, not stiff force-field penalties. Connected nested ligands and bridging ligands form whole bodies. Report unsupported force fields; retain H-capped fragment optimization as an explicitly separate legacy action.
+- Separate force-field energy from geometric contact cleanup and show convergence/score summaries, maximum iterations, stage/iteration progress percentages, elapsed time and cancellation. Only successful native jobs add undo entries.
+- Show and validate only active radii/minimum contact settings; retain the inactive method's values.
+- Refresh X11 clipboard reads on every paste, replace selected text consistently and separate PRIMARY selections from CLIPBOARD. Refresh XYZ on every copy. Optional web copy also awaits edits and refreshes server state, with denied-permission fallbacks.
+- Supply seven built-in carboxylic/phosphinic acids in neutral protonated form. Retain L/P deprotonation chemistry, nitro formal charges and user-entered structures.
+- Add real X11, separate-client clipboard, constraint/gradient/rigidity, async progress and DOM regressions. Keep prior renderer caching and launcher behavior within explicit web mode.
+
 ## 4.3.0 — 2026-11-09
 
 - Restore 4.1's default browser-opening behavior. In 4.2, `SSH_CONNECTION` or `SSH_CLIENT` silently suppressed the opener while the server still printed its URL. Only explicit `--no-browser` now disables automatic opening. Keep `--open-browser` accepted for compatibility.

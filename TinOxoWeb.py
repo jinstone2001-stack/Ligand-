@@ -210,10 +210,12 @@ class Workspace:
                 if k in allowed:self.settings[k]=v
             c.normalize_font_preferences(self.settings)
         elif action=='contacts':
-            criteria=d['criteria']
+            incoming=d['criteria'];criteria={**c.DEFAULTS['contact'],**self.settings['contact'],**p['metadata'].get('contactCriteria',{})}
+            criteria['mode']=incoming['mode']
             if criteria['mode'] not in ('radii','minimum'):raise ValueError('접촉 방식 오류')
             for k,lo,hi in [('vdw',.1,2),('covalent',.5,2),('minimum',.5,6)]:
-                criteria[k]=float(criteria[k])
+                active=(k=='minimum') == (criteria['mode']=='minimum')
+                criteria[k]=float(incoming.get(k,criteria[k])) if active else float(criteria[k])
                 if not lo<=criteria[k]<=hi:raise ValueError('접촉 기준 범위 오류')
             p['metadata']['contactCriteria']=criteria;self.settings['contact']=criteria
         elif action=='bond':
@@ -280,10 +282,13 @@ class Workspace:
     def start_job(self,action,d):
         with self.lock:
             self.ready(d);base=c.clone(self.project);before=self.snapshot();rev=self.revision;cancel=threading.Event()
-            self.job=dict(id=uuid.uuid4().hex,name=action,status='running',progress='계산 준비',error=None,cancel=cancel)
+            self.job=dict(id=uuid.uuid4().hex,name=action,status='running',progress='계산 준비',percent=0,startedAt=time.time(),error=None,cancel=cancel)
             job=self.job
             def progress(s):
-                with self.lock:job['progress']=str(s)
+                with self.lock:
+                    if isinstance(s,dict):
+                        job['progress']=str(s['message']);job['percent']=max(job['percent'],min(99.,float(s['percent'])))
+                    else:job['progress']=str(s)
             def worker():
                 nonlocal base
                 try:
@@ -291,20 +296,27 @@ class Workspace:
                     if action=='attach':
                         rows=d.get('plans',[])
                         if not rows:raise ValueError('리간드 계획을 추가하세요.')
+                        total=sum(1 if r.get('slot_id') else len(r.get('parents',d.get('ids',[]))) for r in rows);done=0
+                        if not total:raise ValueError('리간드를 붙일 원자를 선택하세요.')
                         for row in rows:
                             targets=row.get('parents',d.get('ids',[]));sid=row.get('slot_id')
                             for host in ([None] if sid else targets):
-                                progress(f"{sid or host} 리간드 부착")
-                                c.attach_fragment(base,row['smiles'],parent=host,slot_id=sid,mode=row.get('mode','covalent'),length=float(row['length']) if row.get('length') else None,direction=row.get('direction'),replace_h=d.get('replace_h',True),ff_choice=ff,cleanup=d.get('cleanup',True),cancel=cancel,attachment_index=row.get('attachment_index'),fragment_cache=fragment_cache)
-                    elif action=='optimize':base,results=c.optimize_project(base,ff,d.get('scope','ligands'),steps=int(d.get('steps',500)),cancel=cancel,progress=progress)
-                    elif action=='cleanup':c.cleanup_project(base,cancel)
+                                progress(dict(message=f"{sid or host} 리간드 부착 · {done}/{total}자리 완료",percent=95*done/total))
+                                c.attach_fragment(base,row['smiles'],parent=host,slot_id=sid,mode=row.get('mode','covalent'),length=float(row['length']) if row.get('length') else None,direction=row.get('direction'),replace_h=d.get('replace_h',True),ff_choice=ff,cleanup=d.get('cleanup',True),cancel=cancel,attachment_index=row.get('attachment_index'),fragment_cache=fragment_cache,progress=c.batch_progress(progress,done,total,str(sid or host)))
+                                done+=1;progress(dict(message=f'리간드 {done}/{total}자리 완료',percent=95*done/total))
+                    elif action=='optimize':
+                        base,results=c.optimize_project(base,ff,d.get('scope','ligands'),steps=d.get('steps',500),cancel=cancel,progress=progress,respect_fixed=bool(d.get('respect_fixed',True)))
+                        job['results']=results
+                    elif action=='cleanup':
+                        c.cleanup_project(base,cancel,scope=d.get('scope','core_fixed'),steps=d.get('steps',500),progress=progress,respect_fixed=bool(d.get('respect_fixed',True)))
+                        job['results']=[base['metadata']['lastCleanup']]
                     elif action=='example':
                         base=c.template(int(d['n']))
-                        for s in list(base['slots']):
-                            progress(s['id']);smiles='[*:1]CCCC' if int(d['n'])==12 else '[*:1]C'
+                        for k,s in enumerate(list(base['slots'])):
+                            progress(dict(message=f"예제 {k}/{len(base['slots'])}자리 완료 · {s['id']}",percent=95*k/max(1,len(base['slots']))));smiles='[*:1]CCCC' if int(d['n'])==12 else '[*:1]C'
                             if s['kind']=='L':smiles='CC(=O)[O-]'
                             elif s['kind']=='P':smiles='CP(C)(=O)[O-]'
-                            c.attach_fragment(base,smiles,slot_id=s['id'],ff_choice=ff,cancel=cancel,fragment_cache=fragment_cache)
+                            c.attach_fragment(base,smiles,slot_id=s['id'],ff_choice=ff,cancel=cancel,fragment_cache=fragment_cache,progress=c.batch_progress(progress,k,len(base['slots']),s['id']))
                     else:raise ValueError('계산 명령 오류')
                     with self.lock:
                         if cancel.is_set():raise InterruptedError('계산을 취소했습니다.')
@@ -312,13 +324,14 @@ class Workspace:
                         self.project=base
                         try:self.commit(before,action+' 완료')
                         except Exception:self.project,self.bank,self.settings=before;raise
-                        job['status']='done';job['progress']='완료'
+                        job['status']='done';job['progress']='완료';job['percent']=100;job['finishedAt']=time.time()
                 except Exception as exc:
-                    with self.lock:job['status']='cancelled' if cancel.is_set() else 'error';job['error']=str(exc);self.log(str(exc))
+                    with self.lock:job['status']='cancelled' if cancel.is_set() else 'error';job['error']=str(exc);job['finishedAt']=time.time();self.log(str(exc))
             thread=threading.Thread(target=worker,daemon=True);job['thread']=thread;thread.start()
             return self.public_job()
     def query(self,action,d):
         with self.lock:p=self.project
+        if action=='scope':return c.scope_plan(p,d.get('scope','core_fixed'),bool(d.get('respect_fixed',True)))
         if action=='ligand':return ligand_diagram(d['smiles'],d.get('kind','A'),d.get('mode','covalent'),d.get('selected'))
         if action=='gaussian':
             text,report=c.build_gaussian(p,d['options']);return dict(text=text,report=report)

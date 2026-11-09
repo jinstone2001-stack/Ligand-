@@ -3,7 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width,initial-scale=1" />
-    <title>Tin Oxo Studio 4.3.0</title>
+    <title>Tin Oxo Studio 5.0.0</title>
     <link rel="stylesheet" href="/web/style.css" />
     <script type="module" src="/web/app.js"></script>
   </head>
@@ -16,7 +16,7 @@
         <span class="brandmark">Sn</span>
         <div>
           <strong>TIN OXO <b>STUDIO</b></strong
-          ><small>MOLECULAR WORKSPACE <span>4.3.0</span></small>
+          ><small>MOLECULAR WORKSPACE <span>5.0.0</span></small>
         </div>
       </div>
       <div class="top-actions">
@@ -87,25 +87,42 @@
         <section id="calculate" class="left-content hidden">
           <div class="section-title">
             <span>01</span>
-            <h2>초기 구조 정리</h2>
+            <h2>계산 범위</h2>
           </div>
-          <label
-            >힘장<select id="ff">
-              <option>MMFF94</option>
-              <option>UFF</option>
-            </select></label
-          ><label
-            >최적화 범위<select id="scope">
-              <option value="ligands">리간드 / 코어 고정</option>
-              <option value="all">전체 / 지정 고정 원자 유지</option>
-            </select></label
-          ><button data-action="optimize" class="primary wide">
-            초기 구조 최적화</button
-          ><button data-action="cleanup" class="wide">겹침 줄이기</button>
-          <p class="hint">
-            MMFF/UFF는 초기 구조 정리용입니다. 금속 코어의 정확한 에너지 평가는
-            DFT가 필요합니다.
-          </p>
+          <div class="scope-card">
+            <span class="scope-badge">힘장 · 겹침 줄이기 공통 적용</span>
+            <label>범위 선택<select id="scope">
+              <option value="core_fixed">코어만 고정</option>
+              <option value="all">모든 원자 움직이기</option>
+              <option value="core_only">코어만 움직이기</option>
+              <option value="rigid">코어·리간드 모양만 고정</option>
+            </select></label>
+            <label class="check-row"><input type="checkbox" id="respectFixed">원자별 고정도 추가 적용</label>
+            <p id="scopeDescription" class="hint"></p>
+            <strong id="scopeCounts" aria-live="polite"></strong>
+            <div class="inline"><button data-action="selectMoving">이동 원자 선택</button><button data-action="selectFrozen">고정 원자 선택</button></div>
+            <label>최대 반복 수<input id="optSteps" type="number" value="500" min="1" max="10000" step="1"></label>
+          </div>
+          <section class="calc-card forcefield-card" aria-labelledby="ffHeading">
+            <h3 id="ffHeading">힘장 최적화</h3>
+            <p class="calc-purpose">MMFF94 / UFF 에너지 최소화</p>
+            <label>힘장<select id="ff"><option>MMFF94</option><option>UFF</option></select></label>
+            <button data-action="optimize" class="primary wide">선택 범위로 힘장 최적화</button>
+            <p class="hint">위 범위 적용 · 전체 구조의 파라미터 지원을 검사합니다. Sn 배위 환경이 미지원이면 이유를 표시합니다.</p>
+            <details><summary>Sn 파라미터 없이 리간드 내부만 정리</summary>
+              <p class="hint">별도 범위: 코어·경계 원자·개별 고정을 유지하는 H-capped 조각 계산. 위 범위 선택을 적용하지 않습니다. 에너지는 고립 조각의 값입니다.</p>
+              <button data-action="optimizeFragments" class="wide">리간드 내부만 최적화 (4.x 방식)</button>
+            </details>
+          </section>
+          <section class="calc-card contact-card" aria-labelledby="cleanupHeading">
+            <h3 id="cleanupHeading">겹침 줄이기</h3>
+            <p class="calc-purpose">비결합 접촉 · 기하학적 정리</p>
+            <button data-action="cleanup" class="wide">선택 범위로 겹침 줄이기</button>
+            <p class="hint">위 범위 적용 · 힘장을 사용하지 않습니다. 현재 접촉 기준과 초기 결합 형태를 고려합니다. 모양 고정 모드는 각 조각의 내부 형태를 정확히 유지합니다.</p>
+            <button data-action="contactSettings" class="text-button wide">접촉 검사 기준 조절</button>
+          </section>
+          <p class="hint">MMFF/UFF와 겹침 정리는 초기 구조 준비용입니다.</p>
+          <div id="calculationResult" class="info-box hidden" aria-live="polite"></div>
           <div class="section-title">
             <span>02</span>
             <h2>검사 / 기하</h2>
@@ -260,7 +277,7 @@
     </main>
     <footer>
       <span id="status"><i></i> 준비됨</span><span id="saveStatus"></span
-      ><span id="jobStatus"></span
+      ><div id="jobProgress" class="job-progress hidden" aria-live="polite"><progress id="jobBar" max="100" value="0"></progress><strong id="jobPercent">0%</strong><span id="jobStatus"></span><small id="jobElapsed"></small></div
       ><button data-action="cancel" id="cancelJob" class="hidden">
         작업 취소</button
       ><span class="footer-note">Python chemistry · Browser workspace</span>

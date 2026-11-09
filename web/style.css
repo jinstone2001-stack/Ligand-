@@ -9,6 +9,25 @@
 * {
   box-sizing: border-box;
 }
+[hidden] { display: none !important; }
+.scope-card, .calc-card { border: 1px solid var(--border); border-radius: 10px; padding: 12px; margin: 12px 0; background: var(--input); }
+.scope-card { border-color: var(--accent); }
+.scope-badge { display: inline-block; color: var(--accent); font-size: .78rem; font-weight: bold; margin-bottom: 9px; }
+.calc-card h3 { margin: 0; font-size: 1rem; }
+.calc-purpose { color: var(--muted); font-size: .8rem; margin: 3px 0 12px; }
+.forcefield-card { border-left: 3px solid var(--accent); }
+.contact-card { border-left: 3px solid #d7ae70; }
+.check-row { display: flex; align-items: center; gap: 8px; margin: 10px 0; }
+.check-row input { width: auto; }
+#scopeCounts { display: block; font-size: .85rem; margin: 8px 0; }
+.scope-card .inline button { font-size: .78rem; flex: 1; padding: 6px; }
+.calc-card summary { cursor: pointer; font-size: .8rem; color: var(--muted); margin-top: 10px; }
+.job-progress { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.job-progress progress { width: 90px; height: 9px; accent-color: var(--accent); }
+.job-progress strong { white-space: nowrap; color: var(--accent); }
+#jobStatus { max-width: 320px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#jobElapsed { white-space: nowrap; color: var(--muted); }
+@media (max-width: 900px) { .job-progress { flex-wrap: wrap; } #jobStatus { max-width: 210px; } footer .footer-note { display: none; } }
 html {
   color-scheme: dark;
   font-size: 14px;
@@ -992,3 +1011,5 @@ a {
 #saveStatus.save-error {
   color: var(--danger);
 }
+
+#calculationResult { white-space: pre-line; overflow-wrap: anywhere; }

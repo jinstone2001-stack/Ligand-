@@ -1,4 +1,39 @@
-# Validation — version 4.3.0, 2026-11-09
+# Validation — version 5.0.0, 2026-11-09
+
+The v5.0 release defaults to the **Python/Tk/X11 GUI**, following the user's latest request. Browser mode requires explicit `--web`. Historical records below describe their original releases.
+
+- **145 Python tests pass, no skips**, on Python 3.13.5 / Tk 8.6 / RDKit 2026.09.1 / ASE 3.29.0 / NumPy 2.2.4 / SciPy 1.15.3. This is the prior 122-test suite plus 14 chemistry/API regressions and 9 native/launcher regressions. The run includes the existing 16 GUI checks, 7 new real-X11 GUI checks, and native EGL/GLES pixel checks.
+- Real MMFF94 and UFF calculations exercise all four scope modes on a parameterized organic fixture. Tests verify exact fixed coordinates, movement of permitted atoms, non-increasing force-field energy and unchanged input projects. Rigid transformations preserve all within-core and within-ligand pair distances to 1e-10 Å; nested branches and bridging ligands are grouped by connectivity. Numerical derivatives check the projected rigid gradient.
+- All four geometric cleanup modes are tested on a Sn-core contact fixture. Their contact penalty agrees with the inspector for both radii/minimum modes; finite differences check the analytical gradient. Fixed coordinates and rigid shapes are preserved. Invalid scopes, missing cores, no movable atoms, invalid iteration budgets and cancellation fail without partial application.
+- All 43 built-in SMILES parse and have zero net formal charge. The seven acid entries contain OH; L/P construction removes the donor proton and yields the intended anionic bridge. Nitro's necessary formal charges remain intact.
+- Native tests use a temporary, authenticated Xorg display at 1600×1000. They verify default native dispatch, `--fresh`, the 5.0 window title, scope counts/atom selection, conditional contact fields, successful background cleanup, result/progress display and undo. A separate Tk/X11 process reads consecutive XYZ copies and receives updated coordinates. Entry/Text paste reads new clipboard contents, replaces selected text and preserves Korean. Cancellation at 50% keeps both the structure and undo history unchanged.
+- A real no-DISPLAY CLI subprocess returns an actionable X11 error, without a URL or browser fallback. Web-only flags require `--web`. The previous real CLI/HTTP launcher regressions now explicitly select `--web` and retain v4.3's opening/opt-out behavior.
+- **27 DOM integration scenarios pass** against the real Python API with jsdom 26. Added coverage includes all scope previews, manual fixed flags, active-only contact settings, clipboard refresh/fallback, cleanup scope and percentage/score/convergence rendering. Canvas remains mocked.
+- The existing **100-rotation viewer-cache regression** passes. JavaScript syntax checks, `--check`, versioned `--help` and the SHA-256 manifest are checked. Main X11 calculation layout and contact dialogs were visually inspected locally; explanatory labels now wrap to their actual panel width.
+- The recommended environment pins Tk below 9. A supplementary Python 3.12/Tk 9 run exposed an existing font-family fallback assertion in that Tk build; the supported Tk 8.6 run passes all font and GUI checks.
+
+The user's HPC/MobaXterm/PuTTY session and PC-to-server clipboard bridge were not available. Local X11 validation is not a guarantee of remote latency, FPS or Windows clipboard forwarding. Optional browser appearance and browser WebGL/FPS remain unverified. No Gaussian executable was run.
+
+Full-structure MMFF/UFF requires supported atom types and coordination environments; unsupported Sn environments explicitly stop rather than invent parameters. The separate H-capped ligand optimizer remains available. Geometric cleanup scores are arbitrary penalty units, not force-field energies. Progress is based on stages/completed items/iteration budget; 100% means the task finished, not necessarily that optimization converged.
+
+Reproduce in an isolated development checkout:
+
+```bash
+python TinOxoStudio.py --check
+python -m unittest discover -s tests -v  # Existing working X11 DISPLAY
+# Or developer-only Xorg + dummy driver + xauth:
+python tests/run_x11.py
+# Development-only Node + jsdom 26:
+python tests/run_frontend.py
+node tests/test_viewer.mjs
+node --check web/app.js
+node --check web/viewer.js
+sha256sum -c SHA256SUMS.txt
+```
+
+References for the added coordinate engine: [RDKit force-field energy/gradient API](https://www.rdkit.org/docs/source/rdkit.ForceField.rdForceField.html), [SciPy L-BFGS-B](https://docs.scipy.org/doc/scipy/reference/optimize.minimize-lbfgsb.html). The new code does not supply a scientific parametrization for Sn oxo clusters.
+
+# Earlier 4.3.0 validation record — 2026-11-09
 
 - The clarified report is that Python prints the address without an error but no browser appears. The 4.2 launcher has a specific SSH guard that skips `webbrowser.open`. A pre-fix harness with `SSH_CONNECTION` set printed the URL and made **zero opener calls**; the harness stops the server loop with a simulated KeyboardInterrupt.
 - Restore automatic opening unless `--no-browser` is explicit. `--open-browser` remains accepted for 4.2 command compatibility. Cover both `SSH_CONNECTION` and `SSH_CLIENT`, with default/explicit-open/explicit-opt-out combinations, and preserve the selected bound port and token in the URL.
