@@ -811,26 +811,31 @@ def cleanup_project(p,cancel=None,scope=None,steps=500,progress=None,respect_fix
             note='접촉 벌점 + 초기 결합/1–3 거리 및 약한 변위 제약. 점수는 임의 단위이며 힘장 에너지가 아님.')
         p['metadata']['lastCleanup']=result
         return p
-    for k,s in enumerate(p['slots']):
-        if progress:progress(dict(message=f"회전 겹침 정리 {k+1}/{len(p['slots'])}",percent=95*k/max(1,len(p['slots']))))
-        if s.get('kind') not in ('R','A') or not s.get('anchor') or not s.get('ligandIds'):continue
-        a=index_atoms(p);ids={i for i in s['ligandIds'] if i in a};host=s['sn'][0]
-        if host not in a or s['anchor'] not in a or any(a[i].get('fixed') for i in ids):continue
-        boundary=[b for b in p['bonds'] if (b['a'] in ids)!=(b['b'] in ids)]
-        if len(boundary)!=1:continue
-        points=np.array([xyz(a[i]) for i in sorted(ids)]);origin=xyz(a[host]);axis=xyz(a[s['anchor']])-origin
-        environment=dict(atoms=[v for v in p['atoms'] if v['id'] not in ids],bonds=[b for b in p['bonds'] if not({b['a'],b['b']}&ids)],metadata=p['metadata'])
-        moving=[a[i] for i in sorted(ids)];moving_bonds=[b for b in p['bonds'] if {b['a'],b['b']}&ids]
-        scorer=PlacementScorer(environment,moving,moving_bonds)
-        guard=CorePlacement(p,[host],moving,moving_bonds)
-        best_points=points.copy();best=float('inf')
-        for theta in np.linspace(0,2*math.pi,36,endpoint=False):
-            if cancel and cancel.is_set():raise InterruptedError('겹침 정리를 취소했습니다.')
-            candidate=(points-origin)@axis_rotation(axis,theta).T+origin
-            if not guard.safe(candidate):continue
-            val=scorer.score(candidate)
-            if val<best:best=val;best_points=candidate.copy()
-        for i,r in zip(sorted(ids),best_points):set_xyz(a[i],r)
+    before=clone(p)
+    try:
+        for k,s in enumerate(p['slots']):
+            if progress:progress(dict(message=f"회전 겹침 정리 {k+1}/{len(p['slots'])}",percent=95*k/max(1,len(p['slots']))))
+            if s.get('kind') not in ('R','A') or not s.get('anchor') or not s.get('ligandIds'):continue
+            a=index_atoms(p);ids={i for i in s['ligandIds'] if i in a};host=s['sn'][0]
+            if host not in a or s['anchor'] not in a or any(a[i].get('fixed') for i in ids):continue
+            boundary=[b for b in p['bonds'] if (b['a'] in ids)!=(b['b'] in ids)]
+            if len(boundary)!=1:continue
+            points=np.array([xyz(a[i]) for i in sorted(ids)]);origin=xyz(a[host]);axis=xyz(a[s['anchor']])-origin
+            environment=dict(atoms=[v for v in p['atoms'] if v['id'] not in ids],bonds=[b for b in p['bonds'] if not({b['a'],b['b']}&ids)],metadata=p['metadata'])
+            moving=[a[i] for i in sorted(ids)];moving_bonds=[b for b in p['bonds'] if {b['a'],b['b']}&ids]
+            scorer=PlacementScorer(environment,moving,moving_bonds)
+            guard=CorePlacement(p,[host],moving,moving_bonds)
+            best_points=None;best=float('inf')
+            for theta in np.linspace(0,2*math.pi,36,endpoint=False):
+                if cancel and cancel.is_set():raise InterruptedError('겹침 정리를 취소했습니다.')
+                candidate=(points-origin)@axis_rotation(axis,theta).T+origin
+                if not guard.safe(candidate):continue
+                val=scorer.score(candidate)
+                if val<best:best=val;best_points=candidate.copy()
+            if best_points is None:raise ValueError(f"{s['id']}: 코어 내부로 들어가지 않는 리간드 배치를 찾지 못했습니다. 연결 원자나 리간드 구조를 바꿔 다시 시도하세요.")
+            for i,r in zip(sorted(ids),best_points):set_xyz(a[i],r)
+    except Exception:
+        p.clear();p.update(before);raise
     return p
 
 

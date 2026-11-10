@@ -1,5 +1,10 @@
 # Changes
 
+## Unreleased
+
+- Check ligand atoms and bond crossings against every disconnected core's own envelope while keeping the host core's mass center for direction. Leave the space between separate cores available for placement.
+- Fail legacy rigid cleanup when no exterior pose exists and restore the entire input project on failure or cancellation, including ligands rotated earlier in the same operation.
+
 ## 5.2.0 — 2026-11-09
 
 - Generate core-bound ligands in an exterior cone based on the mass-weighted center of the connected core, excluding existing ligands and respecting explicit isotope masses. Do not reuse saved inward directions during automatic reattachment.
