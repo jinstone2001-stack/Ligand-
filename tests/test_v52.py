@@ -18,6 +18,17 @@ def box_core(planar=False):
     return p
 
 
+def two_box_cores():
+    p=box_core()
+    for atom in p['atoms']:c.set_xyz(atom,1.5*c.xyz(atom))
+    second=c.clone(p)
+    for atom in second['atoms']:p['atoms'].append({**atom,'id':atom['id']+100,'x':atom['x']+8})
+    for bond in second['bonds']:p['bonds'].append({**bond,'a':bond['a']+100,'b':bond['b']+100})
+    p['atoms'].append(dict(id=9,element='Sn',x=3.,y=0.,z=0.,core=True))
+    p['bonds'].append(dict(a=9,b=1,order=1))
+    return p
+
+
 def assert_exterior(test,p,slot):
     atoms=c.index_atoms(p);new=[atoms[i] for i in slot['ligandIds']]
     guard=CorePlacement(p,slot['sn'],new,p['bonds'])
@@ -64,6 +75,16 @@ class CoreGeometryTests(unittest.TestCase):
         self.assertFalse(branch.safe([[3,0,0]]))
         self.assertTrue(branch.safe([[-3,0,2]]))
 
+    def test_all_core_envelopes_are_checked_without_filling_the_gap(self):
+        p=two_box_cores();new=[dict(id=200,element='C'),dict(id=201,element='C')]
+        guard=CorePlacement(p,[9],new,[dict(a=200,b=201)])
+        self.assertFalse(guard.safe([[8,0,0],[12,0,0]]))
+        self.assertFalse(guard.safe([[4,0,0],[12,0,0]]))
+        self.assertTrue(guard.safe([[3.5,0,0],[4.5,0,0]]))
+        p['atoms'].append(dict(id=50,element='C',x=4.,y=0.,z=0.,core=False))
+        branch=CorePlacement(p,[50],[new[0]],[dict(a=50,b=200)])
+        self.assertFalse(branch.safe([[12,0,0]]))
+
     def test_planar_core_and_rigid_frame_transform(self):
         p=box_core(planar=True);new=[dict(id=100,element='C')]
         guard=CorePlacement(p,[1],new,[])
@@ -77,6 +98,17 @@ class CoreGeometryTests(unittest.TestCase):
 
 
 class AttachmentTests(unittest.TestCase):
+    def test_automatic_attachment_avoids_a_second_hollow_core(self):
+        p=two_box_cores();reference=CorePlacement(p,[9],[],[])
+        slot=c.attach_fragment(p,'[*:1]C',parent=9)
+        points=np.array([c.xyz(c.index_atoms(p)[i]) for i in slot['ligandIds']])
+        self.assertFalse(np.any(np.all((points>[5.05,-2.95,-2.95])&(points<[10.95,2.95,2.95]),axis=1)))
+        np.testing.assert_array_equal(slot['placement']['coreCenterOfMass'],reference.center)
+        before=c.clone(p)
+        with self.assertRaisesRegex(ValueError,'배치를 찾지 못했습니다'):
+            c.attach_fragment(p,'[*:1]C',slot_id=slot['id'],direction=[1,0,0])
+        self.assertEqual(p,before)
+
     def test_all_template_r_sites_use_exterior_poses_and_preserve_core(self):
         cache={}
         for n in (3,6,12):
@@ -171,6 +203,37 @@ class AttachmentTests(unittest.TestCase):
                 self.assertEqual(ws.revision,1);self.assertEqual(ws.project,before)
                 ws.mutate('undo',dict(revision=1));self.assertEqual(len(ws.project['atoms']),38)
             finally:ws.close()
+
+
+class LegacyCleanupTests(unittest.TestCase):
+    def test_successful_cleanup_keeps_the_project_and_core(self):
+        p=c.template(12);slot=c.attach_fragment(p,'[*:1]CCC',slot_id='R1',cleanup=False)
+        core=c.clone([a for a in p['atoms'] if a.get('core')])
+        self.assertIs(c.cleanup_project(p),p)
+        self.assertEqual([a for a in p['atoms'] if a.get('core')],core)
+        assert_exterior(self,p,slot)
+
+    def test_unsafe_pose_or_cancellation_restores_earlier_rotations(self):
+        for cancel_later in (False,True):
+            with self.subTest(cancel=cancel_later):
+                p=c.template(12);c.attach_fragment(p,'[*:1]CC',slot_id='R1',cleanup=False)
+                slot=c.attach_fragment(p,'[*:1]C',slot_id='R2',cleanup=False)
+                if not cancel_later:
+                    atoms=c.index_atoms(p);origin=c.xyz(atoms[slot['sn'][0]])
+                    axis=c.xyz(atoms[slot['anchor']])-origin;rotation=c.rotate_matrix(axis,-axis)
+                    for i in slot['ligandIds']:c.set_xyz(atoms[i],(c.xyz(atoms[i])-origin)@rotation.T+origin)
+                    guard=CorePlacement(p,slot['sn'],[atoms[i] for i in slot['ligandIds']],p['bonds'])
+                    self.assertFalse(guard.safe([c.xyz(atoms[i]) for i in slot['ligandIds']]))
+                before=c.clone(p);cancel=threading.Event();changed=[];scores=itertools.count()
+                def progress(value):
+                    if p!=before:
+                        changed.append(True)
+                        if cancel_later:cancel.set()
+                with mock.patch.object(c.PlacementScorer,'score',side_effect=lambda points:-next(scores)):
+                    with self.assertRaises(InterruptedError if cancel_later else ValueError):
+                        c.cleanup_project(p,cancel=cancel,progress=progress)
+                self.assertTrue(changed)
+                self.assertEqual(p,before)
 
 
 if __name__=='__main__':unittest.main()
