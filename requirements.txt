@@ -1,7 +1,0 @@
-# Default X11 GUI needs Tk 8.6: conda install tk or OS python3-tk.
-# Tk is not installed by pip. Optional --web requires no display.
-numpy>=1.24,<3
-scipy>=1.10,<2
-rdkit>=2024.3.1
-ase>=3.22,<4
-Pillow>=10,<13

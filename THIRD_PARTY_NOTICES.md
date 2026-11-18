@@ -1,5 +1,7 @@
 # Sources and third-party components
 
+The separate 5.2 standalone `index.html` reuses the authored web viewer and includes core coordinates, element/isotope tables and ligand coordinates prepared with RDKit at build time. Its runtime uses browser APIs only; no Python/RDKit/ASE binaries, third-party JavaScript, external CDN or font binaries are embedded. Core coordinate provenance and this notice are also embedded in the HTML. This standalone build is distinct from the legacy v2.2 compatibility export described below. Playwright and jsdom are development-only checks and are not included in the HTML runtime.
+
 The Python application depends on separately installed RDKit (BSD license), ASE (LGPL), NumPy, SciPy, Pillow, and Python/Tk. Dependency binaries are not bundled. Consult the installed packages for their current license texts.
 
 Core coordinates and attachment-site metadata are carried over from the user's TinOxoStudio.html v2.2, preserving source identifiers and explanatory notes. Sn12 coordinates originate from DOI 10.21942/uva.24574750 (CC BY 4.0), associated with DOI 10.1021/acs.jpcc.3c07480. Sn6 coordinates originate from DOI 10.1107/S160053681204888X. Original Sn3 coordinates are from DOI 10.1021/ic001088k; the Sn3O3 ring is an explicitly documented deletion-derived design backbone. The phosphinate motif reference is DOI 10.1021/ja00237a072.
